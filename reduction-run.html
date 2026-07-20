@@ -1,0 +1,5559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Reduction Run</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Reduction Run">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2B2B28">
+<style>
+  :root{
+    --paper: #F3EEE1;
+    --paper-line: #C7D3DE;
+    --graphite: #2B2B28;
+    --graphite-soft: #55534C;
+    --pencil-red: #D6482F;
+    --pencil-red-dark: #B8391F;
+  }
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #E4DCC8;
+    font-family: 'Courier New', Courier, monospace;
+    overflow: hidden;
+    touch-action: none;
+  }
+  #wrap {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; width: 100%; padding: 12px;
+  }
+  #stage {
+    position: relative;
+    width: 100%;
+    max-width: 820px;
+    aspect-ratio: 16 / 9;
+    background: var(--paper);
+    border: 3px solid var(--graphite);
+    border-radius: 4px;
+    box-shadow: 6px 6px 0 rgba(43,43,40,0.18);
+    overflow: hidden;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* phone rotated to landscape — go edge to edge */
+  @media (orientation: landscape) and (max-height: 600px) {
+    #wrap { padding: 0; }
+    #stage {
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      max-width: 100vw;
+      aspect-ratio: auto;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+  }
+
+  /* true fullscreen mode (Fullscreen API) — always fill the screen */
+  #stage:fullscreen, #stage:-webkit-full-screen {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-width: 100vw;
+    aspect-ratio: auto;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  #fullscreenBtn {
+    position: absolute;
+    top: 8px; right: 8px;
+    z-index: 3;
+    width: 34px; height: 34px;
+    background: rgba(43,43,40,0.55);
+    border: none;
+    border-radius: 4px;
+    color: #F3EEE1;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #fullscreenBtn:active { background: rgba(43,43,40,0.8); }
+
+  .hud {
+    position: absolute; top: 10px; left: 14px; right: 48px;
+    display: flex; justify-content: space-between;
+    font-weight: bold; color: #F3EEE1;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 6px rgba(0,0,0,0.55);
+    font-size: clamp(13px, 2.6vw, 18px);
+    letter-spacing: 0.5px;
+    pointer-events: none;
+    text-transform: uppercase;
+  }
+  .hud .best { color: #FF8A6B; }
+  #ingotLabel.ingot-pop { animation: ingotPop 0.35s ease-out; }
+  @keyframes ingotPop {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.5); color: #FFF3B0; }
+    100% { transform: scale(1); }
+  }
+
+  .buffTracker {
+    position: absolute;
+    top: 40px; left: 0; right: 0;
+    display: flex; justify-content: center;
+    gap: 8px;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .buffBadge {
+    display: none;
+    align-items: center;
+    gap: 7px;
+    background: rgba(243,238,225,0.96);
+    border: 2.5px solid var(--graphite);
+    border-radius: 18px;
+    padding: 5px 14px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: clamp(13px, 3vw, 16px);
+    font-weight: 700;
+    color: var(--graphite);
+    letter-spacing: 0.5px;
+    box-shadow: 2px 2px 0 rgba(43,43,40,0.15);
+  }
+  .hydrationMeter {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    width: 42%;
+    max-width: 170px;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .hydrationLabel {
+    font-weight: bold;
+    font-size: clamp(10px, 2.2vw, 12px);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #F3EEE1;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 6px rgba(0,0,0,0.55);
+    margin-bottom: 3px;
+  }
+  .hydrationTrack {
+    width: 100%;
+    height: 18px;
+    background: rgba(10,10,10,0.55);
+    border: 2px solid rgba(255,255,255,0.4);
+    border-radius: 9px;
+    overflow: hidden;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+  }
+  .hydrationFill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #2E86C1, #6EC6E8);
+    transition: width 0.25s ease, background 0.25s ease;
+  }
+  .hydrationFill.low {
+    background: linear-gradient(90deg, #C0392B, #E8703D);
+  }
+  .buffBadge.active { display: flex; }
+  .buffBadge .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; border: 1.5px solid rgba(0,0,0,0.25); }
+  #buffShield .dot { background: #F4D93B; }
+  #buffHighlight .dot { background: #D6482F; }
+  #buffSlop .dot { background: #E67E22; }
+  #buffCoffee .dot { background: #6B4226; }
+  #highlightTimerLabel { font-variant-numeric: tabular-nums; }
+
+  .achToast {
+    position: absolute;
+    top: 78px; left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(20,20,18,0.94);
+    border: 2.5px solid #F4D93B;
+    border-radius: 10px;
+    padding: 8px 16px;
+    box-shadow: 3px 3px 0 rgba(0,0,0,0.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    max-width: 88%;
+  }
+  .achToast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .achToastTrophy { font-size: 22px; color: #F4D93B; flex: none; }
+  .achToastText { font-family: Arial, Helvetica, sans-serif; }
+  .achToastTitle {
+    font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+    color: #F4D93B; font-weight: 700;
+  }
+  .achToastName { font-size: 14px; color: #F3EEE1; font-weight: 700; }
+
+
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+    background: rgba(243,238,225,0.94);
+    color: var(--graphite);
+    padding: 20px;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    pointer-events: none;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .overlay h1 {
+    font-size: clamp(22px, 5vw, 34px);
+    margin: 0 0 6px;
+    letter-spacing: 1px;
+    border-bottom: 3px solid var(--graphite);
+    padding-bottom: 8px;
+  }
+  .overlay p {
+    margin: 4px 0;
+    font-size: clamp(12px, 2.4vw, 15px);
+    color: var(--graphite-soft);
+  }
+  .scoreLine {
+    margin-top: 10px !important;
+    font-size: clamp(15px, 3vw, 20px) !important;
+    color: var(--graphite) !important;
+  }
+  .scoreLine b { color: var(--pencil-red-dark); }
+  .btn {
+    margin-top: 16px;
+    background: var(--graphite);
+    color: var(--paper);
+    border: none;
+    padding: 10px 26px;
+    font-family: inherit;
+    font-weight: bold;
+    font-size: clamp(13px, 2.6vw, 16px);
+    letter-spacing: 1px;
+    border-radius: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  .btn:active { transform: translateY(1px); }
+  .hidden { display: none !important; }
+  .btnSecondary {
+    background: #FFFFFF;
+    border: none;
+    color: #111111;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  }
+  .deadButtons {
+    display: flex;
+    flex-direction: row;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .deadButtons .btn { margin-top: 0; }
+
+  /* --- death screen: black, cool, dramatic --- */
+  .overlay--dead {
+    background: rgba(12,12,11,0.97);
+    color: #F3EEE1;
+  }
+  .overlay--dead h1 {
+    color: #F3EEE1;
+    border-bottom-color: var(--pencil-red);
+    text-shadow: 0 0 18px rgba(214,72,47,0.5);
+  }
+  .overlay--dead .scoreLine { color: #F3EEE1 !important; }
+  .overlay--dead .scoreLine b { color: var(--pencil-red); }
+  .overlay--dead .hint { color: #9A968A; }
+  .overlay--dead .btn {
+    background: var(--pencil-red);
+    color: #F3EEE1;
+  }
+
+  /* --- start screen: full animated background visible, composed like a real main menu --- */
+  .overlay--start {
+    background: transparent;
+    overflow: hidden;
+    justify-content: space-between;
+    padding: 6vh 20px 3vh;
+  }
+  .menuTop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .menuEyebrow {
+    font-family: inherit;
+    font-size: clamp(10px, 2vw, 12px);
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: #F3EEE1;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+    margin-bottom: 8px;
+    opacity: 0.9;
+  }
+  .overlay--start h1 {
+    font-size: clamp(32px, 8vw, 56px);
+    color: #F3EEE1;
+    margin: 0;
+    letter-spacing: 2px;
+    border-bottom: none;
+    padding-bottom: 0;
+    text-shadow: 0 3px 0 rgba(0,0,0,0.3), 0 10px 24px rgba(0,0,0,0.55);
+  }
+
+  /* --- shop screen: same full-background treatment as the main menu --- */
+  .overlay--shop {
+    background: transparent;
+    overflow: hidden;
+    justify-content: space-between;
+    padding: 2vh 16px 1.5vh;
+  }
+  .overlay--shop h1 {
+    font-size: clamp(20px, 5.5vw, 32px);
+    color: #F3EEE1;
+    margin: 0;
+    letter-spacing: 2px;
+    border-bottom: none;
+    padding-bottom: 0;
+    text-shadow: 0 3px 0 rgba(0,0,0,0.3), 0 10px 24px rgba(0,0,0,0.55);
+  }
+  .shopBalance {
+    font-size: clamp(16px, 3.6vw, 22px);
+    font-weight: bold;
+    color: #F3EEE1;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    margin-bottom: 2px;
+  }
+  .shopGrid {
+    min-height: 90px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+    max-width: 460px;
+  }
+  .shopComingSoon {
+    color: #F3EEE1;
+    font-size: clamp(12px, 2.4vw, 14px);
+    text-align: center;
+    opacity: 0.85;
+    margin: 0;
+    padding: 10px 6px;
+  }
+  .settingsGearBtn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.16);
+    border: 1px solid rgba(255,255,255,0.35);
+    color: #F3EEE1;
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 2;
+  }
+  .nameInput {
+    font-family: inherit;
+    font-size: clamp(14px, 3vw, 17px);
+    padding: 11px 18px;
+    border-radius: 20px;
+    border: none;
+    text-align: center;
+    width: min(300px, 85vw);
+    background: #FFFFFF;
+    color: #111111;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  }
+  .settingsPanel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .settingsPanel.hidden { display: none; }
+  .profileCurrentName {
+    color: #F3EEE1;
+    font-size: clamp(12px, 2.4vw, 14px);
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  }
+  .profileCurrentName span { font-weight: bold; }
+
+  /* --- safety guy mini-game: comic-panel presentation --- */
+  .overlay--minigame {
+    background: rgba(10,10,10,0.55);
+    padding: 12px;
+  }
+  .mgPanel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    max-height: 100%;
+    justify-content: center;
+  }
+  .mgPanel.hidden { display: none; }
+  .mgPortrait {
+    filter: drop-shadow(0 6px 14px rgba(0,0,0,0.5));
+    width: 60px;
+    height: 66px;
+  }
+  .mgSpeechBubble {
+    background: #FFFFFF;
+    color: #111111;
+    font-weight: 600;
+    font-size: clamp(12px, 2.6vw, 16px);
+    padding: 10px 16px;
+    border-radius: 14px;
+    max-width: min(380px, 82vw);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    position: relative;
+  }
+  .mgSpeechBubble::after {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 0 10px 10px 10px;
+    border-style: solid;
+    border-color: transparent transparent #FFFFFF transparent;
+  }
+  .mgSearchHeader {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: #F3EEE1;
+  }
+  .mgSearchTitle {
+    font-weight: bold;
+    font-size: clamp(15px, 3vw, 19px);
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  }
+  .mgTimer {
+    background: var(--pencil-red);
+    color: #FFFFFF;
+    font-weight: bold;
+    padding: 4px 14px;
+    border-radius: 14px;
+    font-size: 16px;
+  }
+  #mgSearchCanvas {
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    cursor: pointer;
+    max-width: 90vw;
+    height: auto;
+  }
+  .lkTitle {
+    font-weight: bold;
+    color: #F3EEE1;
+    font-size: clamp(15px, 3vw, 19px);
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    margin-bottom: 10px;
+  }
+  .lkPanels {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  #lkElecPanel, #lkStartPanel {
+    cursor: pointer;
+    filter: drop-shadow(0 8px 20px rgba(0,0,0,0.45));
+  }
+  .lkResult {
+    margin-top: 10px;
+    font-weight: bold;
+    color: #8FE0A0;
+    font-size: clamp(12px, 2.6vw, 15px);
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  }
+  .lkResult.lkResultBad { color: #FF8A6B; }
+  .shopTabs {
+    display: flex;
+    gap: 8px;
+  }
+  .shopTab {
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #F3EEE1;
+    padding: 7px 20px;
+    border-radius: 16px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: clamp(11px, 2.2vw, 13px);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .shopTab.active {
+    background: #FFFFFF;
+    color: #111111;
+    border-color: #FFFFFF;
+  }
+  .shopItem {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 110px;
+  }
+  .shopItemIcon {
+    width: 38px;
+    height: 38px;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+  }
+  .shopItemName {
+    color: #F3EEE1;
+    font-size: clamp(11px, 2.2vw, 13px);
+    font-weight: 600;
+    text-align: center;
+  }
+  .shopItemBtn {
+    background: #FFFFFF;
+    color: #111111;
+    border: none;
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: 14px;
+    cursor: pointer;
+  }
+  .shopItemBtn.equipped {
+    background: var(--pencil-red);
+    color: #FFFFFF;
+    cursor: default;
+  }
+  .shopItemBtn.locked {
+    background: rgba(255,255,255,0.25);
+    color: rgba(17,17,17,0.6);
+    cursor: default;
+  }
+  .menuBottom {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 20px 8px;
+    width: 100%;
+  }
+  .menuBottom::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(10,10,10,0) 0%, rgba(8,8,8,0.55) 55%, rgba(8,8,8,0.72) 100%);
+    z-index: -1;
+    pointer-events: none;
+  }
+  .controlsRow {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .controlChip {
+    background: #FFFFFF;
+    border: none;
+    color: #111111;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: clamp(11px, 2.2vw, 13px);
+    letter-spacing: 0.3px;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  }
+  .menuButtons {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .controlsPanel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    max-width: min(360px, 88vw);
+  }
+  .htpPage.hidden { display: none; }
+  .pageArrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.16);
+    border: 1px solid rgba(255,255,255,0.35);
+    color: #F3EEE1;
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 2;
+  }
+  .pageArrow.hidden { display: none; }
+  .pageArrowLeft { left: 10px; }
+  .pageArrowRight { right: 10px; }
+  .buffInfoList {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    justify-content: center;
+    width: 100%;
+  }
+  .buffInfoRow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 8px;
+    padding: 6px 5px;
+    text-align: center;
+    width: 96px;
+  }
+  .buffInfoIconWrap {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+    flex: none;
+  }
+  .buffInfoIcon { flex: none; }
+  .buffInfoText {
+    color: #FFFFFF;
+    font-size: clamp(8px, 1.7vw, 9.5px);
+    line-height: 1.2;
+  }
+  .buffInfoText b { color: #FFF3B0; }
+  .pageDots {
+    display: flex;
+    gap: 6px;
+  }
+  .pageDot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.35);
+  }
+  .pageDot.active { background: #F3EEE1; }
+  .overlay--start .btnStart {
+    padding: 17px 50px;
+    font-size: clamp(17px, 3.6vw, 21px);
+    background: var(--pencil-red);
+    color: #FFFFFF;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.2), 0 10px 30px rgba(214,72,47,0.6);
+    animation: startPulse 2.2s ease-in-out infinite;
+  }
+  @keyframes startPulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(255,255,255,0.2), 0 10px 30px rgba(214,72,47,0.6); }
+    50% { box-shadow: 0 0 0 3px rgba(255,255,255,0.32), 0 12px 44px rgba(214,72,47,0.9); }
+  }
+  .overlay--start .btnSecondary {
+    background: #FFFFFF;
+    border: none;
+    color: #111111;
+    padding: 13px 32px;
+    font-size: clamp(13px, 2.6vw, 15px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  }
+  .overlay--start .btnSecondary:active { transform: translateY(1px); }
+  .overlay--start .muteBtn {
+    padding: 0;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .touchZones {
+    position: absolute; inset: 0;
+    display: flex;
+  }
+  .zone { flex: 1; }
+
+  .hint {
+    margin-top: 14px;
+    font-size: clamp(10px, 2vw, 12px);
+    color: var(--graphite-soft);
+    opacity: 0.8;
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stage">
+    <canvas id="game"></canvas>
+    <button id="fullscreenBtn" title="Fullscreen">&#x26F6;</button>
+    <div class="hud">
+      <span id="scoreLabel">SCORE 0</span>
+      <span class="best" id="bestLabel">BEST 0</span>
+      <span class="best" id="ingotLabel">◆ 0</span>
+    </div>
+    <div class="buffTracker" id="buffTracker">
+      <div class="buffBadge" id="buffShield"><span class="dot"></span>HARD HAT</div>
+      <div class="buffBadge" id="buffHighlight"><span class="dot"></span>TAKE 5 <span id="highlightTimerLabel"></span></div>
+      <div class="buffBadge" id="buffSlop"><span class="dot"></span>SLOP <span id="slopTimerLabel"></span></div>
+      <div class="buffBadge" id="buffCoffee"><span class="dot"></span>COFFEE <span id="coffeeTimerLabel"></span></div>
+    </div>
+
+    <div class="hydrationMeter" id="hydrationMeter">
+      <div class="hydrationLabel">Hydration</div>
+      <div class="hydrationTrack"><div class="hydrationFill" id="hydrationFill"></div></div>
+    </div>
+
+    <div class="achToast" id="achToast">
+      <div class="achToastTrophy">&#9733;</div>
+      <div class="achToastText">
+        <div class="achToastTitle">Achievement Unlocked</div>
+        <div class="achToastName"></div>
+      </div>
+    </div>
+
+    <div class="touchZones" id="touchZones">
+      <div class="zone" id="zoneJump"></div>
+      <div class="zone" id="zoneSlide"></div>
+    </div>
+
+    <div class="overlay overlay--start" id="startOverlay">
+      <button class="settingsGearBtn" id="settingsBtn" aria-label="Settings">&#9881;</button>
+      <button class="pageArrow pageArrowLeft hidden" id="htpPrevBtn" aria-label="Previous page">&#10094;</button>
+      <button class="pageArrow pageArrowRight hidden" id="htpNextBtn" aria-label="Next page">&#10095;</button>
+      <div class="menuTop">
+        <div class="menuEyebrow">Industrial Endless Runner</div>
+        <h1>REDUCTION RUN</h1>
+      </div>
+      <div class="menuBottom">
+        <div class="menuButtons" id="menuButtons">
+          <button class="btn btnStart" id="startBtn">Start</button>
+          <button class="btn btnSecondary" id="controlsBtn">How To Play</button>
+          <button class="btn btnSecondary" id="shopBtnHome">Shop</button>
+          <button class="btn btnSecondary muteBtn" id="muteBtn" aria-label="Mute">&#128266;</button>
+        </div>
+        <div class="controlsPanel hidden" id="controlsPanel">
+          <div class="htpPage" id="htpPage1">
+            <div class="controlsRow">
+              <span class="controlChip">&uarr; / SPACE / TAP LEFT — Jump</span>
+              <span class="controlChip">&darr; / TAP RIGHT — Slide</span>
+            </div>
+          </div>
+          <div class="htpPage hidden" id="htpPage2">
+            <div class="buffInfoList">
+              <div class="buffInfoRow">
+                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon0" width="18" height="18"></canvas></div>
+                <div class="buffInfoText"><b>Hard Hat</b><br>Blocks the next hit — one free save.</div>
+              </div>
+              <div class="buffInfoRow">
+                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon1" width="18" height="18"></canvas></div>
+                <div class="buffInfoText"><b>Take 5</b><br>Highlights hitboxes for 15s.</div>
+              </div>
+              <div class="buffInfoRow">
+                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon2" width="18" height="18"></canvas></div>
+                <div class="buffInfoText"><b>Slop</b><br>Slows the game 30% for 15s.</div>
+              </div>
+            </div>
+          </div>
+          <div class="htpPage hidden" id="htpPage3">
+            <div class="buffInfoList">
+              <div class="buffInfoRow">
+                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon3" width="18" height="18"></canvas></div>
+                <div class="buffInfoText"><b>Coffee</b><br>+100% speed, invulnerable for 10s. Safety Guy exclusive.</div>
+              </div>
+            </div>
+          </div>
+          <div class="pageDots" id="htpDots">
+            <span class="pageDot active" data-page="1"></span>
+            <span class="pageDot" data-page="2"></span>
+            <span class="pageDot" data-page="3"></span>
+          </div>
+          <button class="btn btnSecondary" id="controlsBackBtn">Back</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay overlay--start" id="nameOverlay">
+      <div class="menuTop">
+        <div class="menuEyebrow">Welcome to the plant</div>
+        <h1>What's your name?</h1>
+      </div>
+      <div class="menuBottom">
+        <input type="text" class="nameInput" id="nameInput" maxlength="26" placeholder="Enter your name" autocomplete="off">
+        <button class="btn btnStart" id="nameConfirmBtn">Let's Go</button>
+      </div>
+    </div>
+
+    <div class="overlay overlay--shop" id="settingsOverlay">
+      <div class="menuTop">
+        <div class="menuEyebrow">Options</div>
+        <h1>SETTINGS</h1>
+      </div>
+      <div class="menuBottom">
+        <div class="shopTabs" id="settingsTabs">
+          <button class="shopTab active" data-tab="profile">Profile</button>
+        </div>
+        <div class="settingsPanel" id="settingsPanelProfile">
+          <div class="profileCurrentName">Currently: <span id="profileCurrentName">Worker</span></div>
+          <input type="text" class="nameInput" id="profileNameInput" maxlength="26" placeholder="Enter your name" autocomplete="off">
+          <button class="btn btnSecondary" id="profileSaveBtn">Save Name</button>
+        </div>
+        <button class="btn btnSecondary" id="settingsBackBtn">Back</button>
+      </div>
+    </div>
+
+    <div class="overlay overlay--minigame" id="minigameOverlay">
+      <div class="mgPanel" id="mgIntroPanel">
+        <canvas class="mgPortrait" id="mgIntroIcon" width="90" height="100"></canvas>
+        <div class="mgSpeechBubble" id="mgIntroText"><b>Safety Guy:</b> You haven't had your safety coffee yet.</div>
+        <button class="btn btnSecondary" id="mgIntroContinueBtn">Continue</button>
+      </div>
+
+      <div class="mgPanel hidden" id="mgSearchPanel">
+        <div class="mgSearchHeader">
+          <div class="mgSearchTitle">Find the safety coffee!</div>
+          <div class="mgTimer" id="mgTimerEl">30</div>
+        </div>
+        <canvas id="mgSearchCanvas" width="360" height="220"></canvas>
+      </div>
+
+      <div class="mgPanel hidden" id="mgOutroPanel">
+        <canvas class="mgPortrait" id="mgOutroIcon" width="90" height="100"></canvas>
+        <div class="mgSpeechBubble" id="mgOutroText"><b>Safety Guy:</b> I don't make the rules I just laminate them.</div>
+        <p class="hint" id="mgPatNote">*pat pat* — nice work.</p>
+      </div>
+    </div>
+
+    <div class="overlay overlay--minigame" id="lockoutOverlay">
+      <div class="lkTitle">Lockout / Tagout</div>
+      <div class="lkPanels">
+        <canvas id="lkElecPanel" width="150" height="170"></canvas>
+        <canvas id="lkStartPanel" width="90" height="170"></canvas>
+      </div>
+      <div class="lkResult hidden" id="lkResult"></div>
+    </div>
+
+    <div class="overlay overlay--dead" id="overOverlay">
+      <h1 id="deathHeadline">Let's pretend nobody saw that</h1>
+      <p class="scoreLine">SCORE <b id="finalScore">0</b> &nbsp;—&nbsp; BEST <b id="finalBest">0</b></p>
+      <p id="newBestNote" class="hint hidden">new best!</p>
+      <p class="hint" id="ingotBonusNote">◆ +0 ingots this run</p>
+      <div class="deadButtons">
+        <button class="btn" id="retryBtn">Retry</button>
+        <button class="btn btnSecondary" id="homeBtn">Home</button>
+        <button class="btn btnSecondary" id="shopBtnDead">Shop</button>
+      </div>
+    </div>
+
+    <div class="overlay overlay--shop" id="shopOverlay">
+      <div class="menuTop">
+        <div class="menuEyebrow">Spend your ingots</div>
+        <h1>SHOP</h1>
+      </div>
+      <div class="menuBottom">
+        <div class="shopBalance">◆ <span id="shopIngotCount">0</span></div>
+        <div class="shopTabs" id="shopTabs">
+          <button class="shopTab active" data-slot="head">Head</button>
+          <button class="shopTab" data-slot="shirt">Shirt</button>
+          <button class="shopTab" data-slot="pants">Pants</button>
+        </div>
+        <div class="shopGrid" id="shopGrid"></div>
+        <div class="deadButtons">
+          <button class="btn btnSecondary" id="shopBackBtn">Back</button>
+          <button class="btn btnSecondary" id="shopHomeBtn">Home</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('./service-worker.js').catch(()=>{ /* fine if unsupported */ });
+    });
+  }
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const stage = document.getElementById('stage');
+
+  const scoreLabel = document.getElementById('scoreLabel');
+  const bestLabel = document.getElementById('bestLabel');
+  const ingotLabel = document.getElementById('ingotLabel');
+  const hydrationFill = document.getElementById('hydrationFill');
+  const buffShieldEl = document.getElementById('buffShield');
+  const buffHighlightEl = document.getElementById('buffHighlight');
+  const buffSlopEl = document.getElementById('buffSlop');
+  const slopTimerLabel = document.getElementById('slopTimerLabel');
+  const buffCoffeeEl = document.getElementById('buffCoffee');
+  const coffeeTimerLabel = document.getElementById('coffeeTimerLabel');
+  const highlightTimerLabel = document.getElementById('highlightTimerLabel');
+  const achToastEl = document.getElementById('achToast');
+  const startOverlay = document.getElementById('startOverlay');
+  const overOverlay = document.getElementById('overOverlay');
+  const finalScoreEl = document.getElementById('finalScore');
+  const deathHeadline = document.getElementById('deathHeadline');
+  const finalBestEl = document.getElementById('finalBest');
+  const newBestNote = document.getElementById('newBestNote');
+  const ingotBonusNote = document.getElementById('ingotBonusNote');
+  const startBtn = document.getElementById('startBtn');
+  const menuButtons = document.getElementById('menuButtons');
+  const controlsPanel = document.getElementById('controlsPanel');
+  const controlsBtn = document.getElementById('controlsBtn');
+  const controlsBackBtn = document.getElementById('controlsBackBtn');
+  const htpPrevBtn = document.getElementById('htpPrevBtn');
+  const htpNextBtn = document.getElementById('htpNextBtn');
+  const htpPage1 = document.getElementById('htpPage1');
+  const htpPage2 = document.getElementById('htpPage2');
+  const htpPage3 = document.getElementById('htpPage3');
+  const htpDots = document.getElementById('htpDots').querySelectorAll('.pageDot');
+  const retryBtn = document.getElementById('retryBtn');
+  const homeBtn = document.getElementById('homeBtn');
+  const shopOverlay = document.getElementById('shopOverlay');
+  const shopBtnHome = document.getElementById('shopBtnHome');
+  const muteBtn = document.getElementById('muteBtn');
+  const shopBtnDead = document.getElementById('shopBtnDead');
+  const shopBackBtn = document.getElementById('shopBackBtn');
+  const shopHomeBtn = document.getElementById('shopHomeBtn');
+  const shopIngotCount = document.getElementById('shopIngotCount');
+  const shopTabs = document.getElementById('shopTabs');
+  const shopGrid = document.getElementById('shopGrid');
+  const nameOverlay = document.getElementById('nameOverlay');
+  const nameInput = document.getElementById('nameInput');
+  const nameConfirmBtn = document.getElementById('nameConfirmBtn');
+  const settingsOverlay = document.getElementById('settingsOverlay');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const settingsBackBtn = document.getElementById('settingsBackBtn');
+  const settingsTabs = document.getElementById('settingsTabs');
+  const profileCurrentName = document.getElementById('profileCurrentName');
+  const profileNameInput = document.getElementById('profileNameInput');
+  const profileSaveBtn = document.getElementById('profileSaveBtn');
+  const minigameOverlay = document.getElementById('minigameOverlay');
+  const mgIntroPanel = document.getElementById('mgIntroPanel');
+  const mgIntroIcon = document.getElementById('mgIntroIcon');
+  const mgIntroText = document.getElementById('mgIntroText');
+  const mgIntroContinueBtn = document.getElementById('mgIntroContinueBtn');
+  const mgSearchPanel = document.getElementById('mgSearchPanel');
+  const mgSearchCanvas = document.getElementById('mgSearchCanvas');
+  const mgTimerEl = document.getElementById('mgTimerEl');
+  const mgOutroPanel = document.getElementById('mgOutroPanel');
+  const mgOutroIcon = document.getElementById('mgOutroIcon');
+  const mgOutroText = document.getElementById('mgOutroText');
+  const mgPatNote = document.getElementById('mgPatNote');
+  const lockoutOverlay = document.getElementById('lockoutOverlay');
+  const lkElecPanel = document.getElementById('lkElecPanel');
+  const lkStartPanel = document.getElementById('lkStartPanel');
+  const lkResult = document.getElementById('lkResult');
+  const zoneJump = document.getElementById('zoneJump');
+  const zoneSlide = document.getElementById('zoneSlide');
+
+  // ---------- logical resolution ----------
+  const W = 800, H = 450;
+  const GROUND_Y = 340;
+
+  function fitCanvas(){
+    canvas.width = W;
+    canvas.height = H;
+  }
+  fitCanvas();
+
+  // ---------- persistence (real localStorage — works on any deployed browser) ----------
+  const Store = {
+    async get(key){
+      try{
+        const v = localStorage.getItem(key);
+        return v !== null ? { value: v } : null;
+      }catch(e){ return null; } // e.g. Safari private browsing blocks localStorage
+    },
+    async set(key, value){
+      try{ localStorage.setItem(key, value); }catch(e){ /* ignore, non-fatal */ }
+    }
+  };
+
+  // ---------- persistent high score ----------
+  let best = 0;
+  const HS_KEY = 'stickRunnerHighScore';
+  async function loadBest(){
+    try{
+      const res = await Store.get(HS_KEY);
+      if(res && res.value){
+        best = parseInt(res.value, 10) || 0;
+      }
+    }catch(e){ /* no stored value yet, or storage unavailable */ }
+    bestLabel.textContent = 'BEST ' + best;
+  }
+  async function saveBest(){
+    await Store.set(HS_KEY, String(best));
+  }
+  loadBest();
+
+  // ---------- ingot currency (persistent lifetime total + per-run counter) ----------
+  let totalIngots = 0;
+  let runIngots = 0;
+  const INGOTS_KEY = 'stickRunnerIngots';
+  async function loadIngots(){
+    try{
+      const res = await Store.get(INGOTS_KEY);
+      if(res && res.value) totalIngots = parseInt(res.value, 10) || 0;
+    }catch(e){ /* no stored value yet */ }
+    ingotLabel.textContent = '◆ ' + totalIngots;
+  }
+  async function saveIngots(){
+    await Store.set(INGOTS_KEY, String(totalIngots));
+  }
+  loadIngots();
+
+  function updateHydrationMeter(){
+    hydrationFill.style.width = Math.max(0, hydration) + '%';
+    hydrationFill.classList.toggle('low', hydration <= 25);
+  }
+
+  // ---------- cosmetics (Head / Shirt / Pants) ----------
+  const SHOP_ITEMS = {
+    head: [
+      { id:'hat_red',   name:'Red Hard Hat',   cost:0,  color:'#D6482F', dark:'#8C2E1B' },
+      { id:'hat_green', name:'Green Hardhat',  cost:25, color:'#3F8F4A', dark:'#24522A' }
+    ],
+    shirt: [
+      { id:'vest_yellow', name:'Hi-Vis Vest', cost:0, color:'#F4D93B', dark:'#8C8C86' }
+    ],
+    pants: []
+  };
+  let equipped = { head:'hat_red', shirt:'vest_yellow', pants:null };
+  let ownedItems = { head:['hat_red'], shirt:['vest_yellow'], pants:[] };
+  const COSMETICS_KEY = 'stickRunnerCosmetics';
+
+  async function loadCosmetics(){
+    try{
+      const res = await Store.get(COSMETICS_KEY);
+      if(res && res.value){
+        const parsed = JSON.parse(res.value);
+        if(parsed.equipped) equipped = Object.assign(equipped, parsed.equipped);
+        if(parsed.owned){
+          for(const slot in parsed.owned){
+            ownedItems[slot] = Array.from(new Set([...(ownedItems[slot]||[]), ...parsed.owned[slot]]));
+          }
+        }
+      }
+    }catch(e){ /* first run, or storage unavailable */ }
+  }
+  async function saveCosmetics(){
+    await Store.set(COSMETICS_KEY, JSON.stringify({ equipped, owned: ownedItems }));
+  }
+  loadCosmetics();
+
+  function getEquippedItem(slot){
+    const list = SHOP_ITEMS[slot] || [];
+    return list.find(it => it.id === equipped[slot]) || list[0] || null;
+  }
+
+  // ---------- player name ----------
+  let playerName = '';
+  const NAME_KEY = 'stickRunnerName';
+  async function loadName(){
+    try{
+      const res = await Store.get(NAME_KEY);
+      if(res && res.value) playerName = res.value;
+    }catch(e){ /* first run */ }
+    if(playerName){
+      nameOverlay.classList.remove('show');
+      startOverlay.classList.add('show');
+    } else {
+      startOverlay.classList.remove('show');
+      nameOverlay.classList.add('show');
+    }
+  }
+  async function saveName(name){
+    playerName = name;
+    await Store.set(NAME_KEY, name);
+  }
+  loadName();
+
+  // ---------- mute ----------
+  let muted = false;
+  const MUTE_KEY = 'stickRunnerMuted';
+  async function loadMuted(){
+    try{
+      const res = await Store.get(MUTE_KEY);
+      if(res && res.value === 'true') muted = true;
+    }catch(e){ /* first run */ }
+    updateMuteButton();
+  }
+  async function saveMuted(){
+    await Store.set(MUTE_KEY, String(muted));
+  }
+  function updateMuteButton(){
+    muteBtn.innerHTML = muted ? '&#128263;' : '&#128266;';
+    muteBtn.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
+  }
+  function setMuted(m){
+    muted = m;
+    if(actx){
+      if(muted) actx.suspend();
+      else actx.resume();
+    }
+    updateMuteButton();
+    saveMuted();
+  }
+  loadMuted();
+
+  // ---------- achievements ----------
+  const STATS_KEY = 'stickRunnerStats';
+  const ACH_KEY = 'stickRunnerAchievements';
+  let stats = { deaths: 0, closeCalls: 0, hardHatsUsed: 0, booksCollected: 0, holesCleared: 0, cranesCleared: 0, safetyLinesSeen: 0 };
+  let unlockedAch = {};
+  let runBestScore = 0; // best score reached during the current run, for score-threshold achievements
+
+  const ACHIEVEMENTS = [
+    { id:'score_500',   name:'First Shift',          desc:'Score 500 in one run',          check:()=> runBestScore >= 500 },
+    { id:'score_2000',  name:'Getting the Hang Of It', desc:'Score 2,000 in one run',       check:()=> runBestScore >= 2000 },
+    { id:'score_5000',  name:'Aluminum Veteran',      desc:'Score 5,000 in one run',        check:()=> runBestScore >= 5000 },
+    { id:'score_10000', name:'Legend of the Floor',   desc:'Score 10,000 in one run',       check:()=> runBestScore >= 10000 },
+    { id:'close_call',  name:'Close Call',            desc:'Clear an obstacle with barely any room to spare', check:()=> stats.closeCalls >= 1 },
+    { id:'close_call_10', name:'Nine Lives',          desc:'Survive 10 close calls',        check:()=> stats.closeCalls >= 10 },
+    { id:'deaths_5',    name:'Rough Shift',           desc:'Die 5 times',                   check:()=> stats.deaths >= 5 },
+    { id:'deaths_25',   name:'Frequent Flyer',        desc:'Die 25 times',                  check:()=> stats.deaths >= 25 },
+    { id:'shielded',    name:'Suited Up',             desc:'Use a hard hat to survive a hit', check:()=> stats.hardHatsUsed >= 1 },
+    { id:'bookworm',    name:'Take Five',             desc:'Read the book',                 check:()=> stats.booksCollected >= 1 },
+    { id:'hole_cleared', name:'Mind the Gap',         desc:'Clear a random-event hole',     check:()=> stats.holesCleared >= 1 },
+    { id:'crane_cleared', name:'Low Profile',         desc:'Thread a crane swing without getting clipped', check:()=> stats.cranesCleared >= 1 },
+    { id:'ignoring_advice', name:'Ignoring Good Advice', desc:'Spot a worker complaining about safety equipment', check:()=> stats.safetyLinesSeen >= 1 },
+  ];
+
+  async function loadStats(){
+    try{
+      const res = await Store.get(STATS_KEY);
+      if(res && res.value) stats = Object.assign(stats, JSON.parse(res.value));
+    }catch(e){ /* first run, or storage unavailable */ }
+    try{
+      const res2 = await Store.get(ACH_KEY);
+      if(res2 && res2.value) unlockedAch = JSON.parse(res2.value);
+    }catch(e){ /* first run */ }
+  }
+  async function saveStats(){
+    await Store.set(STATS_KEY, JSON.stringify(stats));
+  }
+  async function saveAch(){
+    await Store.set(ACH_KEY, JSON.stringify(unlockedAch));
+  }
+  loadStats();
+
+  let achToastQueue = [];
+  let achToastShowing = false;
+  function checkAchievements(){
+    for(const a of ACHIEVEMENTS){
+      if(!unlockedAch[a.id] && a.check()){
+        unlockedAch[a.id] = true;
+        achToastQueue.push(a);
+      }
+    }
+    if(achToastQueue.length) saveAch();
+    processAchToastQueue();
+  }
+  function processAchToastQueue(){
+    if(achToastShowing || achToastQueue.length === 0) return;
+    achToastShowing = true;
+    const a = achToastQueue.shift();
+    achToastEl.querySelector('.achToastTitle').textContent = 'Achievement Unlocked';
+    achToastEl.querySelector('.achToastName').textContent = a.name;
+    achToastEl.classList.add('show');
+    playPowerup('shield');
+    setTimeout(()=>{
+      achToastEl.classList.remove('show');
+      setTimeout(()=>{
+        achToastShowing = false;
+        processAchToastQueue();
+      }, 400);
+    }, 2600);
+  }
+
+  // ---------- audio (synthesized, no external files) ----------
+  let actx = null;
+  function initAudio(){
+    try{
+      if(!actx){
+        actx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if(actx && actx.state === 'suspended' && !muted){
+        actx.resume();
+      }
+      // classic unlock trick: play a silent buffer directly inside the gesture handler —
+      // more reliable than an oscillator alone on strict mobile / in-app browser webviews
+      if(actx){
+        const buffer = actx.createBuffer(1, 1, 22050);
+        const src = actx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(actx.destination);
+        src.start(0);
+      }
+    }catch(e){
+      actx = null;
+    }
+  }
+
+  function playPowerup(kind){
+    if(!actx) return;
+    const t0 = actx.currentTime;
+    const notes = kind === 'highlight' ? [392, 494, 587] : kind === 'slop' ? [330, 262, 220] : kind === 'ingot' ? [880, 1175] : kind === 'water' ? [494, 659] : [523, 659, 880];
+    notes.forEach((freq, i) => {
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, t0 + i*0.06);
+      gain.gain.setValueAtTime(0.001, t0 + i*0.06);
+      gain.gain.exponentialRampToValueAtTime(0.18, t0 + i*0.06 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + i*0.06 + 0.18);
+      osc.connect(gain).connect(actx.destination);
+      osc.start(t0 + i*0.06);
+      osc.stop(t0 + i*0.06 + 0.2);
+    });
+  }
+
+  function playShieldBreak(){
+    if(!actx) return;
+    const t0 = actx.currentTime;
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(300, t0);
+    osc.frequency.exponentialRampToValueAtTime(140, t0 + 0.18);
+    gain.gain.setValueAtTime(0.16, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
+    osc.connect(gain).connect(actx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.22);
+  }
+
+  function playJump(){
+    if(!actx) return;
+    const t0 = actx.currentTime;
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(220, t0);
+    osc.frequency.exponentialRampToValueAtTime(440, t0 + 0.1);
+    gain.gain.setValueAtTime(0.001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.18, t0 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.14);
+    osc.connect(gain).connect(actx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.15);
+  }
+
+  function playBoop(){
+    if(!actx) return;
+    const t0 = actx.currentTime;
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(340, t0);
+    osc.frequency.exponentialRampToValueAtTime(480, t0 + 0.04);
+    osc.frequency.exponentialRampToValueAtTime(300, t0 + 0.09);
+    gain.gain.setValueAtTime(0.001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.2, t0 + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.11);
+    osc.connect(gain).connect(actx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.12);
+  }
+
+  function playFart(){
+    if(!actx) return;
+    const t0 = actx.currentTime;
+    const dur = 0.4 + Math.random()*0.15;
+
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    const filter = actx.createBiquadFilter();
+    osc.type = 'sawtooth';
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(900, t0);
+
+    // wobbling low pitch for a comedic buzzy tone
+    const baseFreq = 70 + Math.random()*30;
+    osc.frequency.setValueAtTime(baseFreq, t0);
+    for(let i=0; i<8; i++){
+      const tt = t0 + (i/8)*dur;
+      const wob = baseFreq * (0.6 + Math.random()*0.9);
+      osc.frequency.linearRampToValueAtTime(wob, tt);
+    }
+    osc.frequency.exponentialRampToValueAtTime(30, t0 + dur);
+
+    gain.gain.setValueAtTime(0.001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.22, t0 + 0.03);
+    gain.gain.setValueAtTime(0.2, t0 + dur*0.6);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+
+    osc.connect(filter).connect(gain).connect(actx.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  }
+
+  function playCrash(){
+    if(!actx) return;
+    const t0 = actx.currentTime;
+
+    // noisy crack
+    const bufSize = actx.sampleRate * 0.25;
+    const buffer = actx.createBuffer(1, bufSize, actx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<bufSize;i++){ data[i] = (Math.random()*2-1) * (1 - i/bufSize); }
+    const noise = actx.createBufferSource();
+    noise.buffer = buffer;
+    const noiseFilter = actx.createBiquadFilter();
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.setValueAtTime(2200, t0);
+    const noiseGain = actx.createGain();
+    noiseGain.gain.setValueAtTime(0.35, t0);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.25);
+    noise.connect(noiseFilter).connect(noiseGain).connect(actx.destination);
+    noise.start(t0);
+
+    // low thud
+    const osc = actx.createOscillator();
+    const oscGain = actx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(90, t0);
+    osc.frequency.exponentialRampToValueAtTime(35, t0 + 0.3);
+    oscGain.gain.setValueAtTime(0.3, t0);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.32);
+    osc.connect(oscGain).connect(actx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.33);
+  }
+
+  function primeSpeech(){
+    try{
+      if(!('speechSynthesis' in window)) return;
+      // a near-silent utterance spoken synchronously inside a user-gesture handler
+      // unlocks speechSynthesis on iOS/Safari and some Android browsers, which otherwise
+      // silently block speak() calls made later from inside a game loop / timeout
+      const primer = new SpeechSynthesisUtterance(' ');
+      primer.volume = 0;
+      primer.rate = 10;
+      window.speechSynthesis.speak(primer);
+    }catch(e){ /* ignore */ }
+  }
+
+  function playCrashVoice(){
+    try{
+      if(muted) return;
+      if(!('speechSynthesis' in window)) return;
+      const line = Math.random() < 0.5 ? 'Show me your take 5' : 'You get that on them big jobs';
+      const utter = new SpeechSynthesisUtterance(line);
+      utter.rate = 0.95;
+      utter.pitch = 0.9;
+      utter.volume = 1;
+      utter.lang = 'en-US';
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+    }catch(e){ /* speech unavailable, ignore */ }
+  }
+
+  // ---------- input ----------
+  const keys = { jump:false, slide:false };
+  let jumpPressed = false;
+
+  window.addEventListener('keydown', (e)=>{
+    const tag = e.target.tagName;
+    if(tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if(['Space','ArrowUp','KeyW'].includes(e.code)){
+      e.preventDefault();
+      if(!keys.jump) jumpPressed = true;
+      keys.jump = true;
+    } else if(['ArrowDown','KeyS'].includes(e.code)){
+      e.preventDefault();
+      keys.slide = true;
+    }
+  });
+  window.addEventListener('keyup', (e)=>{
+    const tag = e.target.tagName;
+    if(tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if(['Space','ArrowUp','KeyW'].includes(e.code)) keys.jump = false;
+    if(['ArrowDown','KeyS'].includes(e.code)) keys.slide = false;
+  });
+
+  function bindZone(el, onDown, onUp){
+    el.addEventListener('touchstart', (e)=>{ e.preventDefault(); onDown(); }, {passive:false});
+    el.addEventListener('touchend', (e)=>{ e.preventDefault(); onUp(); }, {passive:false});
+    el.addEventListener('mousedown', (e)=>{ e.preventDefault(); onDown(); });
+    el.addEventListener('mouseup', (e)=>{ e.preventDefault(); onUp(); });
+    el.addEventListener('mouseleave', ()=>{ onUp(); });
+  }
+  bindZone(zoneJump, ()=>{ initAudio(); if(!keys.jump) jumpPressed = true; keys.jump = true; }, ()=>{ keys.jump = false; });
+  bindZone(zoneSlide, ()=>{ keys.slide = true; }, ()=>{ keys.slide = false; });
+
+  startBtn.addEventListener('click', startGame);
+  const HTP_PAGE_COUNT = 3;
+  let htpPageNum = 1;
+  function showHtpPage(n){
+    htpPageNum = n;
+    htpPage1.classList.toggle('hidden', n !== 1);
+    htpPage2.classList.toggle('hidden', n !== 2);
+    htpPage3.classList.toggle('hidden', n !== 3);
+    htpDots.forEach((d,i) => d.classList.toggle('active', i === n-1));
+    if(n === 2) drawBuffInfoIcons2();
+    if(n === 3) drawBuffInfoIcons3();
+  }
+
+  controlsBtn.addEventListener('click', () => {
+    menuButtons.classList.add('hidden');
+    controlsPanel.classList.remove('hidden');
+    htpPrevBtn.classList.remove('hidden');
+    htpNextBtn.classList.remove('hidden');
+    showHtpPage(1);
+  });
+  controlsBackBtn.addEventListener('click', () => {
+    controlsPanel.classList.add('hidden');
+    htpPrevBtn.classList.add('hidden');
+    htpNextBtn.classList.add('hidden');
+    menuButtons.classList.remove('hidden');
+  });
+  htpNextBtn.addEventListener('click', () => showHtpPage(htpPageNum === HTP_PAGE_COUNT ? 1 : htpPageNum+1));
+  htpPrevBtn.addEventListener('click', () => showHtpPage(htpPageNum === 1 ? HTP_PAGE_COUNT : htpPageNum-1));
+  retryBtn.addEventListener('click', startGame);
+  homeBtn.addEventListener('click', goHome);
+
+  let shopOrigin = 'home'; // which overlay to return to when Back is pressed
+  let activeShopSlot = 'head';
+
+  function drawBuffInfoIcons2(){
+    drawBuffInfoIcon(document.getElementById('buffInfoIcon0'), 'shield');
+    drawBuffInfoIcon(document.getElementById('buffInfoIcon1'), 'highlight');
+    drawBuffInfoIcon(document.getElementById('buffInfoIcon2'), 'slop');
+  }
+  function drawBuffInfoIcons3(){
+    drawBuffInfoIcon(document.getElementById('buffInfoIcon3'), 'coffee');
+  }
+
+  function drawBuffInfoIcon(canvas, kind){
+    const c = canvas.getContext('2d');
+    c.clearRect(0, 0, canvas.width, canvas.height);
+    const cx = canvas.width/2, cy = canvas.height/2;
+    const s = canvas.width/34; // icon art below was authored for a 34px canvas
+    c.save();
+    c.translate(cx, cy);
+    c.scale(s, s);
+    c.translate(-cx, -cy);
+
+    if(kind === 'shield'){
+      c.fillStyle = '#D6482F';
+      c.beginPath(); c.arc(cx, cy, 12, Math.PI, 0); c.fill();
+      c.strokeStyle = '#181816';
+      c.lineWidth = 2;
+      c.beginPath(); c.arc(cx, cy, 12, Math.PI, 0); c.stroke();
+      c.beginPath(); c.moveTo(cx-13, cy); c.lineTo(cx+13, cy); c.stroke();
+      c.fillStyle = '#8C2E1B';
+      c.beginPath(); c.arc(cx, cy-8, 2, 0, Math.PI*2); c.fill();
+    } else if(kind === 'highlight'){
+      c.save();
+      c.translate(cx, cy);
+      c.rotate(-0.12);
+      c.fillStyle = '#D6482F';
+      c.fillRect(-11, -13, 5, 26);
+      c.fillStyle = '#F3EEE1';
+      c.fillRect(-6, -13, 17, 26);
+      c.strokeStyle = '#181816';
+      c.lineWidth = 1.5;
+      c.strokeRect(-6, -13, 17, 26);
+      c.restore();
+    } else if(kind === 'slop'){
+      c.fillStyle = '#D9D4C4';
+      c.beginPath(); c.ellipse(cx, cy+6, 14, 6, 0, 0, Math.PI*2); c.fill();
+      c.fillStyle = '#E8C07D';
+      c.beginPath();
+      c.moveTo(cx-10, cy+3); c.lineTo(cx-1, cy-9); c.lineTo(cx-1, cy+3);
+      c.closePath();
+      c.fill();
+      c.strokeStyle = '#8A5A2E';
+      c.lineWidth = 1;
+      c.stroke();
+      c.fillStyle = '#D6482F';
+      c.beginPath();
+      c.moveTo(cx+2, cy+3); c.lineTo(cx+11, cy+3); c.lineTo(cx+9, cy-4); c.lineTo(cx+4, cy-4);
+      c.closePath();
+      c.fill();
+    } else if(kind === 'coffee'){
+      c.fillStyle = '#FFFFFF';
+      c.fillRect(cx-6, cy-6, 11, 11);
+      c.strokeStyle = '#8C8C86';
+      c.lineWidth = 1.5;
+      c.strokeRect(cx-6, cy-6, 11, 11);
+      c.beginPath(); c.arc(cx+6, cy, 4, -Math.PI/2, Math.PI/2); c.stroke();
+      c.fillStyle = '#6B4A2A';
+      c.fillRect(cx-5, cy-4, 9, 3);
+    }
+    c.restore();
+  }
+
+  function drawShopItemIcon(canvas, slot, item){
+    const c = canvas.getContext('2d');
+    c.clearRect(0, 0, canvas.width, canvas.height);
+    const cx = canvas.width/2, cy = canvas.height/2;
+    const dark = item.dark || '#3A3A38';
+
+    if(slot === 'head'){
+      // hard hat dome, same silhouette as the in-game icon/character
+      c.fillStyle = item.color;
+      c.beginPath();
+      c.arc(cx, cy+3, 13, Math.PI, 0);
+      c.fill();
+      c.strokeStyle = dark;
+      c.lineWidth = 2;
+      c.stroke();
+      c.beginPath();
+      c.moveTo(cx-14, cy+3); c.lineTo(cx+14, cy+3);
+      c.stroke();
+      c.fillStyle = dark;
+      c.beginPath(); c.arc(cx, cy-5, 2, 0, Math.PI*2); c.fill();
+    } else if(slot === 'shirt'){
+      // vest silhouette with a notched collar
+      c.fillStyle = item.color;
+      c.fillRect(cx-13, cy-13, 26, 27);
+      c.strokeStyle = dark;
+      c.lineWidth = 2;
+      c.strokeRect(cx-13, cy-13, 26, 27);
+      c.fillStyle = 'rgba(0,0,0,0.28)';
+      c.beginPath();
+      c.moveTo(cx-6, cy-13);
+      c.lineTo(cx, cy-4);
+      c.lineTo(cx+6, cy-13);
+      c.closePath();
+      c.fill();
+    } else {
+      // pants silhouette — waistband + two legs
+      c.fillStyle = item.color;
+      c.beginPath();
+      c.moveTo(cx-12, cy-14);
+      c.lineTo(cx+12, cy-14);
+      c.lineTo(cx+9, cy+14);
+      c.lineTo(cx+2, cy+14);
+      c.lineTo(cx, cy-1);
+      c.lineTo(cx-2, cy+14);
+      c.lineTo(cx-9, cy+14);
+      c.closePath();
+      c.fill();
+      c.strokeStyle = dark;
+      c.lineWidth = 2;
+      c.stroke();
+    }
+  }
+
+  function renderShopTab(){
+    shopGrid.innerHTML = '';
+    const items = SHOP_ITEMS[activeShopSlot] || [];
+    if(items.length === 0){
+      const p = document.createElement('p');
+      p.className = 'shopComingSoon';
+      p.textContent = 'No items yet — check back after your next shift.';
+      shopGrid.appendChild(p);
+      return;
+    }
+    for(const item of items){
+      const owned = (ownedItems[activeShopSlot] || []).includes(item.id);
+      const isEquipped = equipped[activeShopSlot] === item.id;
+
+      const card = document.createElement('div');
+      card.className = 'shopItem';
+
+      const iconCanvas = document.createElement('canvas');
+      iconCanvas.className = 'shopItemIcon';
+      iconCanvas.width = 44;
+      iconCanvas.height = 44;
+      card.appendChild(iconCanvas);
+      drawShopItemIcon(iconCanvas, activeShopSlot, item);
+
+      const name = document.createElement('div');
+      name.className = 'shopItemName';
+      name.textContent = item.name;
+      card.appendChild(name);
+
+      const btn = document.createElement('button');
+      btn.className = 'shopItemBtn';
+      if(isEquipped){
+        btn.textContent = 'Equipped';
+        btn.classList.add('equipped');
+      } else if(owned){
+        btn.textContent = 'Equip';
+        btn.addEventListener('click', () => {
+          equipped[activeShopSlot] = item.id;
+          saveCosmetics();
+          renderShopTab();
+        });
+      } else if(item.cost <= totalIngots){
+        btn.textContent = `Buy — ${item.cost} ◆`;
+        btn.addEventListener('click', () => {
+          totalIngots -= item.cost;
+          ingotLabel.textContent = '◆ ' + totalIngots;
+          shopIngotCount.textContent = totalIngots;
+          ownedItems[activeShopSlot] = [...(ownedItems[activeShopSlot]||[]), item.id];
+          equipped[activeShopSlot] = item.id;
+          saveIngots();
+          saveCosmetics();
+          renderShopTab();
+        });
+      } else {
+        btn.textContent = `${item.cost} ◆`;
+        btn.classList.add('locked');
+      }
+      card.appendChild(btn);
+      shopGrid.appendChild(card);
+    }
+  }
+
+  shopTabs.querySelectorAll('.shopTab').forEach(tabBtn => {
+    tabBtn.addEventListener('click', () => {
+      activeShopSlot = tabBtn.dataset.slot;
+      shopTabs.querySelectorAll('.shopTab').forEach(b => b.classList.remove('active'));
+      tabBtn.classList.add('active');
+      renderShopTab();
+    });
+  });
+
+  function openShop(origin){
+    shopOrigin = origin;
+    shopIngotCount.textContent = totalIngots;
+    renderShopTab();
+    startOverlay.classList.remove('show');
+    overOverlay.classList.remove('show');
+    shopOverlay.classList.add('show');
+  }
+  function closeShop(){
+    shopOverlay.classList.remove('show');
+    if(shopOrigin === 'dead') overOverlay.classList.add('show');
+    else startOverlay.classList.add('show');
+  }
+  shopBtnHome.addEventListener('click', () => openShop('home'));
+  muteBtn.addEventListener('click', () => setMuted(!muted));
+  shopBtnDead.addEventListener('click', () => openShop('dead'));
+  shopBackBtn.addEventListener('click', closeShop);
+  shopHomeBtn.addEventListener('click', goHome);
+
+  function confirmName(){
+    const name = nameInput.value.trim().slice(0, 26) || 'Worker';
+    saveName(name);
+    nameOverlay.classList.remove('show');
+    startOverlay.classList.add('show');
+  }
+  nameConfirmBtn.addEventListener('click', confirmName);
+  nameInput.addEventListener('keydown', e => { if(e.key === 'Enter') confirmName(); });
+
+  function openSettings(){
+    profileCurrentName.textContent = playerName || 'Worker';
+    profileNameInput.value = '';
+    startOverlay.classList.remove('show');
+    settingsOverlay.classList.add('show');
+  }
+  function closeSettings(){
+    settingsOverlay.classList.remove('show');
+    startOverlay.classList.add('show');
+  }
+  settingsBtn.addEventListener('click', openSettings);
+  settingsBackBtn.addEventListener('click', closeSettings);
+
+  function saveProfileName(){
+    const name = profileNameInput.value.trim().slice(0, 26);
+    if(!name) return;
+    saveName(name);
+    profileCurrentName.textContent = name;
+    profileNameInput.value = '';
+  }
+  profileSaveBtn.addEventListener('click', saveProfileName);
+  profileNameInput.addEventListener('keydown', e => { if(e.key === 'Enter') saveProfileName(); });
+
+  // ---------- safety guy mini-game controller ----------
+  const JUNK_POOL = ['pen','paperclip','stickynote','stapler','tape','batteries','screwdriver','rubberband','keys','coin','eraser','lightbulb','thumbtack'];
+
+  function startSafetyMinigame(){
+    gamePaused = true;
+    obstacles = [];
+    mgPhase = 'intro';
+    mgIntroText.innerHTML = '<b>Safety Guy:</b> ' + "You haven't had your safety coffee yet.";
+    drawSafetyGuyPortrait(mgIntroIcon);
+    mgIntroPanel.classList.remove('hidden');
+    mgSearchPanel.classList.add('hidden');
+    mgOutroPanel.classList.add('hidden');
+    minigameOverlay.classList.add('show');
+  }
+
+  mgIntroContinueBtn.addEventListener('click', beginSearchPhase);
+
+  function beginSearchPhase(){
+    mgPhase = 'search';
+    mgTimeLeft = 30;
+    mgTimerEl.textContent = 30;
+    mgIntroPanel.classList.add('hidden');
+    mgSearchPanel.classList.remove('hidden');
+    setupSearchScene();
+  }
+
+  function setupSearchScene(){
+    const ITEM_COUNT = 23; // decoys, not counting the mug — significantly more cluttered
+    const decoys = [];
+    for(let i=0; i<ITEM_COUNT; i++){
+      decoys.push(JUNK_POOL[Math.floor(Math.random()*JUNK_POOL.length)]);
+    }
+    const types = decoys.concat(['mug']).sort(() => Math.random()-0.5);
+
+    const cw = mgSearchCanvas.width, ch = mgSearchCanvas.height;
+    const cols = 6, rows = 4;
+    const cellW = cw/cols, cellH = ch/rows;
+    const cells = [];
+    for(let r=0; r<rows; r++) for(let c=0; c<cols; c++) cells.push({ cx: c*cellW+cellW/2, cy: r*cellH+cellH/2 });
+    const shuffledCells = cells.sort(() => Math.random()-0.5);
+
+    mgItems = types.map((type, i) => ({
+      type,
+      x: shuffledCells[i].cx + (Math.random()*cellW*0.5 - cellW*0.25),
+      y: shuffledCells[i].cy + (Math.random()*cellH*0.5 - cellH*0.25),
+      rot: Math.random()*Math.PI*2,
+      r: 16
+    }));
+    drawSearchScene();
+  }
+
+  function drawSearchScene(){
+    const c = mgSearchCanvas.getContext('2d');
+    c.clearRect(0, 0, mgSearchCanvas.width, mgSearchCanvas.height);
+    c.fillStyle = '#7A5C3E';
+    c.fillRect(0, 0, mgSearchCanvas.width, mgSearchCanvas.height);
+    c.strokeStyle = '#4A3520';
+    c.lineWidth = 6;
+    c.strokeRect(3, 3, mgSearchCanvas.width-6, mgSearchCanvas.height-6);
+    for(const item of mgItems) drawJunkItem(c, item.type, item.x, item.y, item.rot);
+  }
+
+  mgSearchCanvas.addEventListener('click', e => {
+    if(mgPhase !== 'search') return;
+    const rect = mgSearchCanvas.getBoundingClientRect();
+    const scaleX = mgSearchCanvas.width/rect.width, scaleY = mgSearchCanvas.height/rect.height;
+    const x = (e.clientX-rect.left)*scaleX, y = (e.clientY-rect.top)*scaleY;
+    const mug = mgItems.find(it => it.type === 'mug');
+    if(mug && Math.hypot(x-mug.x, y-mug.y) < mug.r){
+      endSearchPhase(true);
+    }
+  });
+
+  function updateMinigameTimer(rawDt){
+    if(mgPhase !== 'search') return;
+    mgTimeLeft -= rawDt;
+    if(mgTimeLeft <= 0){
+      mgTimeLeft = 0;
+      endSearchPhase(false);
+    }
+    mgTimerEl.textContent = Math.ceil(mgTimeLeft);
+  }
+
+  function endSearchPhase(success){
+    mgPhase = 'outro';
+    mgSearchPanel.classList.add('hidden');
+    mgOutroPanel.classList.remove('hidden');
+    drawSafetyGuyPortrait(mgOutroIcon);
+    if(success){
+      mgOutroText.innerHTML = '<b>Safety Guy:</b> ' + "I don't make the rules I just laminate them.";
+      mgPatNote.textContent = '*pat pat* — nice work.';
+      mgPatNote.classList.remove('hidden');
+      player.coffeeTimer = 10;
+    } else {
+      mgOutroText.innerHTML = '<b>Safety Guy:</b> ' + "Guess we're both getting written up.";
+      mgPatNote.classList.add('hidden');
+    }
+    setTimeout(finishMinigame, 5000);
+  }
+
+  function finishMinigame(){
+    minigameOverlay.classList.remove('show');
+    mgPhase = null;
+    safetyGuy = null;
+    obstacles = [];
+    lastObstacleEdge = player.x + speed*5; // a clear stretch of road to get back up to speed
+    gamePaused = false;
+    lastTime = performance.now();
+  }
+
+  // ---------- lockout/tagout mini-game ----------
+  function spawnElectricalBox(){
+    electricalBox = { x: W + 70, w: 34, h: 46, y: GROUND_Y - 46, speed };
+  }
+
+  function startLockoutMinigame(){
+    gamePaused = true;
+    obstacles = [];
+    lkPhase = 'active';
+    lkSwitchOff = false;
+    lkLockAttached = false;
+    lkPassed = false;
+    lkResult.classList.add('hidden');
+    lkResult.classList.remove('lkResultBad');
+    drawLkElecPanel();
+    drawLkStartPanel();
+    lockoutOverlay.classList.add('show');
+  }
+
+  // switch handle sits at y=60 when on, y=100 when off; lock hangs at (130,130) until
+  // attached, then snaps onto the switch handle itself
+  function lkSwitchHandleY(){ return lkSwitchOff ? 105 : 55; }
+  function lkLockPos(){
+    return lkLockAttached
+      ? { x: 92, y: lkSwitchHandleY()+20 }
+      : { x: 92, y: 135 };
+  }
+
+  function drawLkElecPanel(){
+    const c = lkElecPanel.getContext('2d');
+    c.clearRect(0, 0, 150, 170);
+
+    // box
+    c.fillStyle = '#8A8578';
+    c.fillRect(10, 10, 110, 150);
+    c.strokeStyle = '#3A3D40';
+    c.lineWidth = 3;
+    c.strokeRect(10, 10, 110, 150);
+
+    // label plate
+    c.fillStyle = '#3A3D40';
+    c.fillRect(22, 20, 86, 16);
+    c.fillStyle = '#F4D93B';
+    c.font = 'bold 9px sans-serif';
+    c.textAlign = 'center';
+    c.fillText('MAIN DISCONNECT', 65, 31);
+
+    // switch slot — big, pushed hard against the right side of the box
+    c.strokeStyle = '#181816';
+    c.lineWidth = 4;
+    sketchLine(86, 48, 86, 112);
+    sketchLine(114, 48, 114, 112);
+
+    // switch handle — bolded/high-contrast since it's a clickable part (unless locked out,
+    // where it visually goes dull/immobile)
+    const swY = lkSwitchHandleY();
+    c.strokeStyle = lkLockAttached ? '#8C8C86' : '#181816';
+    c.lineWidth = 10;
+    sketchLine(100, 80, 100, swY);
+    c.fillStyle = lkLockAttached ? '#B8BCC0' : '#D6482F';
+    c.beginPath();
+    c.arc(100, swY, 15, 0, Math.PI*2);
+    c.fill();
+    c.strokeStyle = '#181816';
+    c.lineWidth = 3;
+    c.stroke();
+
+    // lock — bolded yellow so it clearly reads as clickable, wherever it currently sits
+    const lp = lkLockPos();
+    if(!lkLockAttached){
+      c.strokeStyle = '#3A3D40';
+      c.lineWidth = 2;
+      sketchLine(lp.x, 118, lp.x, lp.y-8); // hangs from a small hook
+    }
+    c.strokeStyle = '#181816';
+    c.lineWidth = 2.5;
+    c.beginPath();
+    c.arc(lp.x, lp.y-8, 8, Math.PI, 0);
+    c.stroke();
+    c.fillStyle = '#F4D93B';
+    c.fillRect(lp.x-10, lp.y-4, 20, 17);
+    c.strokeStyle = '#181816';
+    c.lineWidth = 2;
+    c.strokeRect(lp.x-10, lp.y-4, 20, 17);
+    c.fillStyle = '#181816';
+    c.beginPath();
+    c.arc(lp.x, lp.y+4, 2.5, 0, Math.PI*2);
+    c.fill();
+  }
+
+  function drawLkStartPanel(){
+    const c = lkStartPanel.getContext('2d');
+    c.clearRect(0, 0, 90, 170);
+    c.fillStyle = '#8A8578';
+    c.fillRect(10, 10, 70, 150);
+    c.strokeStyle = '#3A3D40';
+    c.lineWidth = 3;
+    c.strokeRect(10, 10, 70, 150);
+
+    // bold red push-button — the clearest, boldest clickable element on this panel
+    c.fillStyle = '#D6482F';
+    c.beginPath();
+    c.arc(45, 85, 27, 0, Math.PI*2);
+    c.fill();
+    c.strokeStyle = '#181816';
+    c.lineWidth = 3;
+    c.stroke();
+    c.fillStyle = '#FFFFFF';
+    c.font = 'bold 10px sans-serif';
+    c.textAlign = 'center';
+    c.fillText('START', 45, 82);
+    c.fillText('STOP', 45, 95);
+  }
+
+  lkElecPanel.addEventListener('click', e => {
+    if(lkPhase !== 'active') return;
+    const rect = lkElecPanel.getBoundingClientRect();
+    const scaleX = lkElecPanel.width/rect.width, scaleY = lkElecPanel.height/rect.height;
+    const x = (e.clientX-rect.left)*scaleX, y = (e.clientY-rect.top)*scaleY;
+
+    if(!lkLockAttached && Math.hypot(x-100, y-lkSwitchHandleY()) < 20){
+      lkSwitchOff = !lkSwitchOff;
+      drawLkElecPanel();
+      return;
+    }
+    const lp = lkLockPos();
+    if(!lkLockAttached && Math.hypot(x-lp.x, y-lp.y) < 16){
+      if(lkSwitchOff){
+        lkLockAttached = true;
+        drawLkElecPanel();
+      }
+    }
+  });
+
+  lkStartPanel.addEventListener('click', () => {
+    if(lkPhase !== 'active') return;
+    finishLockout(lkSwitchOff && lkLockAttached);
+  });
+
+  function finishLockout(passed){
+    lkPhase = 'done';
+    lkPassed = passed;
+    lkResult.textContent = passed ? 'LOCKOUT VERIFIED — safe to cross' : 'INCOMPLETE — proceed with caution';
+    lkResult.classList.remove('hidden');
+    lkResult.classList.toggle('lkResultBad', !passed);
+    setTimeout(finishLockoutMinigame, 2200);
+  }
+
+  function finishLockoutMinigame(){
+    lockoutOverlay.classList.remove('show');
+    electricalBox = null;
+    lkPhase = null;
+    spawnHole(lkPassed);
+    eventState = 'hole';
+    gamePaused = false;
+    lastTime = performance.now();
+  }
+
+
+  // ---------- fullscreen ----------
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+  function isFullscreen(){
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+
+  async function enterFullscreen(){
+    try{
+      const req = stage.requestFullscreen || stage.webkitRequestFullscreen;
+      if(req) await req.call(stage);
+    }catch(e){ /* fullscreen not permitted in this context — CSS landscape fallback still applies */ }
+    // best-effort landscape lock; only works on some browsers, only inside fullscreen
+    try{
+      if(screen.orientation && screen.orientation.lock){
+        await screen.orientation.lock('landscape');
+      }
+    }catch(e){ /* not supported / not allowed — user can just rotate manually */ }
+  }
+
+  function exitFullscreen(){
+    try{
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if(exit) exit.call(document);
+    }catch(e){ /* ignore */ }
+    try{ if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); }catch(e){ /* ignore */ }
+  }
+
+  fullscreenBtn.addEventListener('click', ()=>{
+    if(isFullscreen()) exitFullscreen();
+    else enterFullscreen();
+  });
+
+  document.addEventListener('fullscreenchange', ()=>{
+    fullscreenBtn.textContent = isFullscreen() ? '\u2715' : '\u26F6';
+  });
+  document.addEventListener('webkitfullscreenchange', ()=>{
+    fullscreenBtn.textContent = isFullscreen() ? '\u2715' : '\u26F6';
+  });
+
+  // ---------- game state ----------
+  let state = 'idle'; // idle | playing | dead
+  let idleTime = 0; // ticks every frame regardless of state, unlike elapsed/distance
+  let player, obstacles, particles, powerups, distance, speed, spawnTimer, nextSpawnGap, elapsed, shake;
+
+  // cached gradients — these get reused across frames instead of being allocated fresh
+  // every single frame (creating a gradient object is real, avoidable per-frame cost,
+  // and several of these run multiple times per frame across repeated background elements)
+  let cachedScrimGradient = null;
+  let cachedVignetteGradient = null;
+  let cachedFactoryHaloGradient = null;
+  let floatTexts = [];
+  // random events: a guaranteed 5s calm/warning stretch, then a single event (currently: a hole)
+  let eventState, eventTimer, lastEventScore, hole, eventProps, firstEventDone, eventType, crane, forklift, cafeteria;
+  let lastHardHatScore = 0;
+  let lastBookScore = 0;
+  let lastCafeteriaScore = 0;
+  let lastIngotScore = 0;
+  let hydration = 100;
+  const HYDRATION_DECAY_RATE = 100/90; // fully drains over ~90 seconds of continuous play
+  let lastWaterScore = 0;
+  let lastTime = 0;
+
+  // ---------- safety guy mini-game ----------
+  let gamePaused = false;
+  let safetyGuy = null;
+  let lastSafetyScore = 0;
+  let safetyGuyEligibleThisRun = false; // decided once per run — ~10% of games get a Safety Guy at all
+  const SAFETY_EVENT_GAP = 3200; // rare — meant to feel like a treat, not a regular event
+  let mgPhase = null; // null | 'intro' | 'search' | 'outro'
+  let mgTimeLeft = 30;
+  let mgItems = [];
+
+  // ---------- lockout/tagout mini-game (precedes every hole event) ----------
+  let electricalBox = null;
+  let lkPhase = null; // null | 'active' | 'done'
+  let lkSwitchOff = false; // starts in the ON position
+  let lkLockAttached = false;
+  let lkPassed = false;
+
+  // ---------- basement level (reached by falling through a failed lockout hole) ----------
+  const BASEMENT_DURATION = 45; // seconds of running before the staircase appears
+  let inBasement = false;
+  let basementTime = 0;
+  let basementSpawnTimer = 0;
+  let basementNextGap = 1.0;
+  let staircase = null;
+
+  // static MET box (basement only) — starts green, randomly alternates to a short red
+  // phase; while red, bouncing lightning bolts fire in from the right
+  let metLightRed = false;
+  let metCycleTimer = 0;
+  let metPhaseLength = 4 + Math.random()*3; // how long the current phase (green or red) lasts
+  let metBoltTimer = 0;
+  let lightningBolts = []; // active bouncing bolt projectiles: {x,y,vx,vy,r}
+
+  function resetGame(){
+    player = {
+      x: 110, y: GROUND_Y, vy: 0,
+      w: 34, h: 62,
+      sliding: false, slideT: 0,
+      onGround: true,
+      prevOnGround: true,
+      legPhase: 0,
+      hasShield: false,
+      shieldFlash: 0,
+      highlightTimer: 0,
+      slopTimer: 0,
+      coffeeTimer: 0
+    };
+    obstacles = [];
+    particles = [];
+    floatTexts = [];
+    powerups = [];
+    runIngots = 0;
+    distance = 0;
+    speed = 300; // px per second, world scroll speed
+    spawnTimer = 0;
+    nextSpawnGap = 1.1;
+    lastHardHatScore = -1500; // allow one to spawn fairly early (in points)
+    lastBookScore = -1500;
+    lastObstacleEdge = -Infinity;
+    lastObstacleAction = null;
+    runBestScore = 0;
+    eventState = 'none';
+    eventTimer = 0;
+    lastEventScore = -1200; // let the first event become eligible a bit into the run
+    hole = null;
+    eventProps = [];
+    firstEventDone = false;
+    eventType = null;
+    crane = null;
+    forklift = null;
+    cafeteria = null;
+    lastCafeteriaScore = -1800;
+    safetyGuy = null;
+    safetyGuyEligibleThisRun = Math.random() < 0.10; // ~1 in 10 games will feature the Safety Guy at all
+    lastSafetyScore = -1500;
+    gamePaused = false;
+    mgPhase = null;
+    electricalBox = null;
+    lkPhase = null;
+    lkSwitchOff = false;
+    lkLockAttached = false;
+    lkPassed = false;
+    inBasement = false;
+    falling = false;
+    fallY = 0;
+    fallHole = null;
+    basementTime = 0;
+    basementSpawnTimer = 0;
+    basementNextGap = 1.0;
+    staircase = null;
+    metLightRed = false;
+    lightningBolts = [];
+    lastIngotScore = -220;
+    hydration = 100;
+    lastWaterScore = -300;
+    elapsed = 0;
+    shake = 0;
+  }
+
+  function startGame(){
+    initAudio();
+    primeSpeech();
+    resetGame();
+    state = 'playing';
+    startOverlay.classList.remove('show');
+    overOverlay.classList.remove('show');
+    shopOverlay.classList.remove('show');
+    settingsOverlay.classList.remove('show');
+    minigameOverlay.classList.remove('show');
+    lockoutOverlay.classList.remove('show');
+    newBestNote.classList.add('hidden');
+    buffShieldEl.classList.remove('active');
+    buffHighlightEl.classList.remove('active');
+    buffSlopEl.classList.remove('active');
+    buffCoffeeEl.classList.remove('active');
+    updateHydrationMeter();
+    lastTime = performance.now();
+  }
+
+  function goHome(){
+    resetGame();
+    state = 'idle';
+    overOverlay.classList.remove('show');
+    shopOverlay.classList.remove('show');
+    settingsOverlay.classList.remove('show');
+    minigameOverlay.classList.remove('show');
+    lockoutOverlay.classList.remove('show');
+    newBestNote.classList.add('hidden');
+    buffShieldEl.classList.remove('active');
+    buffHighlightEl.classList.remove('active');
+    buffSlopEl.classList.remove('active');
+    buffCoffeeEl.classList.remove('active');
+    controlsPanel.classList.add('hidden');
+    htpPrevBtn.classList.add('hidden');
+    htpNextBtn.classList.add('hidden');
+    menuButtons.classList.remove('hidden');
+    startOverlay.classList.add('show');
+  }
+
+  // ---------- physics ----------
+  const GRAVITY = 1900;
+  const JUMP_V = -680;
+
+  // ---------- obstacle factory ----------
+  // Global tracker for the trailing edge and maneuver type of the last obstacle placed,
+  // scrolling in sync with the obstacles themselves. Every new obstacle — whether from the
+  // regular spawn timer or a twin pairing — is clamped to respect a minimum gap from this,
+  // so no combination of timing can ever produce an unfair/impossible pair.
+  //
+  // The minimum gap is derived from real jump physics rather than a guessed number: a full
+  // jump arc (leap to landing) takes JUMP_AIR_TIME seconds no matter how it's spent, so any
+  // transition involving a jump — jump-then-jump, jump-then-slide, or slide-then-jump — needs
+  // at least that much time plus a reaction buffer before the next obstacle's danger zone
+  // starts. Sliding has no equivalent commit time (it's instant to start/stop), so a pure
+  // slide-then-slide transition only needs a much shorter reaction-only gap.
+  let lastObstacleEdge = -Infinity;
+  let lastObstacleAction = null;
+  const JUMP_AIR_TIME = 2 * Math.abs(JUMP_V) / GRAVITY; // ~0.72s for a full leap-to-landing arc
+  const REACTION_BUFFER = 0.35; // seconds of clear time to see and react to what's next
+  const GAP_SECONDS_JUMP_INVOLVED = JUMP_AIR_TIME + REACTION_BUFFER; // ~1.07s
+  const GAP_SECONDS_SLIDE_ONLY = 0.3; // reaction-only, sliding has no arc commitment
+
+  // requires a clear time-buffer around the spawn point so a powerup never lands on or
+  // right next to an obstacle — this only needs a spawn-time check since both scroll at
+  // the same speed, so whatever gap exists at spawn holds for the powerup's whole lifetime
+  function powerupSpawnSafe(puWidth){
+    const buffer = 0.6 * speed;
+    const left = (W + 40) - buffer;
+    const right = (W + 40) + puWidth + buffer;
+    return !obstacles.some(ob => ob.x < right && ob.x + ob.w > left);
+  }
+
+  // ensures a newly-spawned pickup doesn't land on/overlap an already-spawned one
+  function powerupOverlapSafe(spawnX, minGap){
+    return powerups.every(pu => Math.abs(pu.x - spawnX) > minGap);
+  }
+
+  function placeObstacle(ob, action){
+    let gapSeconds;
+    if(lastObstacleAction === null){
+      gapSeconds = 0;
+    } else if(lastObstacleAction === 'jump' || action === 'jump'){
+      gapSeconds = GAP_SECONDS_JUMP_INVOLVED;
+    } else {
+      gapSeconds = GAP_SECONDS_SLIDE_ONLY;
+    }
+    const minGap = gapSeconds * speed; // convert the time budget to a pixel gap at the current speed
+    let minX = lastObstacleEdge + minGap;
+
+    // also stay clear of any powerup currently on screen so it never gets boxed in by a
+    // freshly-spawned obstacle right after it appears
+    const puBuffer = 0.5 * speed;
+    for(const pu of powerups){
+      if(!pu.collected) minX = Math.max(minX, pu.x + pu.w + puBuffer);
+    }
+
+    ob.x = Math.max(ob.x, minX);
+    lastObstacleEdge = ob.x + ob.w;
+    lastObstacleAction = action;
+    obstacles.push(ob);
+  }
+
+  function pickGroundSkin(){
+    const r = Math.random();
+    if(r < 0.32) return 'worker';
+    if(r < 0.56) return 'crucible';
+    if(r < 0.8) return 'hotspill';
+    return 'anode-dropped';
+  }
+
+  const SAFETY_LINE_CHANCE = 1/450; // very low per-worker odds — many workers spawn per run
+  function maybeGiveSafetyLine(ob){
+    if(Math.random() < SAFETY_LINE_CHANCE){
+      ob.saysLine = true;
+      stats.safetyLinesSeen = (stats.safetyLinesSeen||0) + 1;
+      saveStats();
+      checkAchievements();
+    }
+  }
+
+  function spawnObstacle(){
+    const difficulty = Math.min(elapsed / 45, 1); // 0..1 over ~45s
+    const roll = Math.random();
+
+    let type;
+    if(roll < 0.45) type = 'ground';        // jump over
+    else if(roll < 0.8) type = 'overhead';  // anode on a chain — slide under
+    else type = 'tall';                      // bigger ground obstacle, needs earlier jump
+
+    let ob = { x: W + 40, type, hit:false };
+
+    if(type === 'ground'){
+      ob.w = 26 + Math.random()*14;
+      ob.h = 38 + Math.random()*18;
+      ob.y = GROUND_Y - ob.h;
+      ob.skin = pickGroundSkin();
+      if(ob.skin === 'worker'){ ob.vestColor = Math.random() < 0.5 ? '#E8822F' : '#F4D93B'; maybeGiveSafetyLine(ob); }
+      if(ob.skin === 'anode-dropped'){ ob.w = 70; ob.h = 24; ob.y = GROUND_Y - ob.h; }
+    } else if(type === 'tall'){
+      ob.w = 34;
+      ob.h = 70 + difficulty*20;
+      ob.y = GROUND_Y - ob.h;
+      ob.skin = pickGroundSkin();
+      if(ob.skin === 'worker'){ ob.vestColor = Math.random() < 0.5 ? '#E8822F' : '#F4D93B'; maybeGiveSafetyLine(ob); }
+      if(ob.skin === 'anode-dropped'){ ob.w = 70; ob.h = 24; ob.y = GROUND_Y - ob.h; }
+    } else { // anode — hangs at slide height, same as always; only the chain art changes
+      ob.w = 60 + Math.random()*20;
+      ob.h = 24;
+      const bottom = GROUND_Y - 38 - Math.random()*8;
+      ob.y = bottom - ob.h;
+      ob.skin = 'anode';
+    }
+
+    placeObstacle(ob, type === 'overhead' ? 'slide' : 'jump');
+
+    // occasional twin obstacle at higher difficulty
+    if(difficulty > 0.35 && Math.random() < 0.25 * difficulty){
+      const extra = Math.random()*40 * (speed / 300);
+      let ob2 = { x: ob.x + ob.w + extra, hit:false };
+      let action2;
+      if(Math.random() < 0.5){
+        ob2.type = 'ground';
+        ob2.w = 24; ob2.h = 34; ob2.y = GROUND_Y - ob2.h;
+        ob2.skin = pickGroundSkin();
+        if(ob2.skin === 'worker'){ ob2.vestColor = Math.random() < 0.5 ? '#E8822F' : '#F4D93B'; maybeGiveSafetyLine(ob2); }
+        if(ob2.skin === 'anode-dropped'){ ob2.w = 70; ob2.h = 24; ob2.y = GROUND_Y - ob2.h; }
+        action2 = 'jump';
+      } else {
+        ob2.type = 'overhead';
+        ob2.w = 60; ob2.h = 24;
+        ob2.y = (GROUND_Y - 40) - ob2.h;
+        ob2.skin = 'anode';
+        action2 = 'slide';
+      }
+      placeObstacle(ob2, action2);
+    }
+  }
+
+  // ---------- random events ----------
+  const EVENT_MIN_SCORE_GAP = 1400;  // points between events
+  const EVENT_MIN_SCORE_START = 1000; // no events before this score
+  const REST_DURATION = 5;           // seconds of guaranteed calm + warning signage before the event
+  const HOLE_TIGHTNESS = 0.62;       // fraction of max jump distance the hole eats up — tight but makeable
+  const CRANE_DURATION = 3.6;        // seconds the whole crane rig spends crossing the screen
+  const CRANE_PERIOD = 3.0;          // seconds per full swing cycle — slow, readable swing
+  const CRANE_CHAIN = 300;           // chain length in px — ball hangs near the ground at center
+  const CRANE_MAX_ANGLE = 0.85;      // radians from vertical — ball rises to ~50% screen height at the apex
+  const CRANE_BALL_R = 20;           // wrecking ball collision radius
+  const CRANE_RAIL_Y = 26;           // height of the crane arm/pivot
+  const HANGING_ANODE_STEM_H = 112;  // hanging anode's rigid stem length
+  const DROPPED_ANODE_STEM_H = 67.5; // fallen anode's rigid stem length (90 * 0.75)
+  const ANODE_STEM_W = 8;            // collision/highlight width, kept tight to the visible stem
+
+  function getAnodeStemRect(ob){
+    const stemH = ob.skin === 'anode-dropped' ? DROPPED_ANODE_STEM_H : HANGING_ANODE_STEM_H;
+    const cx = ob.x + ob.w/2;
+    return { x: cx - ANODE_STEM_W/2, y: ob.y - stemH, w: ANODE_STEM_W, h: stemH };
+  }
+  const FORKLIFT_SPAWN_CHANCE = 1;   // 100% for now — will drop once more safe-zone obstacle variety exists
+
+  function updateRandomEvent(dt, score){
+    // move/cull decorative event props (caution tape, danger signs) regardless of phase
+    for(const p of eventProps){ p.x -= speed * dt; }
+    eventProps = eventProps.filter(p => p.x + p.w > -40);
+
+    if(eventState === 'none'){
+      const nothingImminent = !obstacles.some(ob => ob.x < player.x + 150);
+      const eligible = nothingImminent && score >= EVENT_MIN_SCORE_START && score - lastEventScore >= EVENT_MIN_SCORE_GAP;
+      const roll = !firstEventDone ? eligible : (eligible && Math.random() < 0.004);
+      if(roll){
+        eventState = 'resting';
+        eventTimer = REST_DURATION;
+        eventType = Math.random() < 0.5 ? 'hole' : 'crane';
+        lastEventScore = score;
+        firstEventDone = true;
+        obstacles = [];               // clear the field so the rest/warning stretch is genuinely obstacle-free
+        lastObstacleEdge = -Infinity; // reset spacing memory since there's nothing left to space against
+        lastObstacleAction = null;
+        spawnEventWarnings();
+        forklift = null;
+        if(Math.random() < FORKLIFT_SPAWN_CHANCE) spawnForklift();
+      }
+      return;
+    }
+
+    if(eventState === 'resting'){
+      eventTimer -= dt;
+      if(forklift) updateForklift(dt);
+      // gated on the forklift being fully gone too, not just the timer — guarantees it's
+      // always dealt with well before the real event obstacle ever shows up
+      if(eventTimer <= 0 && !forklift){
+        if(eventType === 'hole'){ spawnElectricalBox(); eventState = 'lockout-approach'; }
+        else { spawnCrane(); eventState = 'crane'; }
+      }
+      return;
+    }
+
+    if(eventState === 'lockout-approach' && electricalBox){
+      electricalBox.x -= electricalBox.speed * dt;
+      if(electricalBox.x <= player.x + 16){
+        startLockoutMinigame();
+      }
+      return;
+    }
+
+    if(eventState === 'hole' && hole){
+      hole.x -= hole.speed * dt;
+
+      const pw = player.sliding ? 46 : player.w;
+      const px = player.x - pw/2 + (player.sliding ? 6 : 0);
+
+      // fall in: on the ground (standing or sliding) with the hole under your feet.
+      // Skipped entirely when the lockout check passed — a verified-safe floor never gives way.
+      if(!hole.lockoutPassed && !hole.cleared && !hole.failed && player.onGround &&
+         px + pw > hole.x && px < hole.x + hole.w){
+        hole.failed = true;
+        fallIntoHole();
+        return; // fallIntoHole() nulls out `hole` via enterBasement() — nothing below is safe to touch
+      }
+
+      // cleared: fully passed the trailing edge without falling in
+      if(!hole.cleared && !hole.failed && hole.x + hole.w < px){
+        hole.cleared = true;
+        stats.holesCleared++;
+        checkAchievements();
+      }
+
+      if(hole.x + hole.w < -40){
+        hole = null;
+        eventState = 'none';
+      }
+      return;
+    }
+
+    if(eventState === 'crane' && crane){
+      crane.x -= crane.speed * dt;
+      crane.t += dt;
+
+      // true pendulum: starts at max swing (ball up and safe) so there's a beat to read it
+      // before the first low, dangerous pass — angle=0 is straight down (lowest, most dangerous)
+      const angle = CRANE_MAX_ANGLE * Math.cos((2*Math.PI/CRANE_PERIOD) * crane.t);
+      const pivotX = crane.x + crane.w/2;
+      const pivotY = CRANE_RAIL_Y;
+      crane.ballX = pivotX + CRANE_CHAIN * Math.sin(angle);
+      crane.ballY = pivotY + CRANE_CHAIN * Math.cos(angle);
+      crane.pivotX = pivotX;
+      crane.pivotY = pivotY;
+
+      const pw = player.sliding ? 46 : player.w;
+      const ph = player.sliding ? 30 : player.h;
+      const px = player.x - pw/2 + (player.sliding ? 6 : 0);
+      const py = player.sliding ? GROUND_Y - ph + 4 : player.y - ph;
+      const ballRect = {
+        x: crane.ballX - CRANE_BALL_R, y: crane.ballY - CRANE_BALL_R,
+        w: CRANE_BALL_R*2, h: CRANE_BALL_R*2
+      };
+
+      if(!crane.cleared && !crane.failed && rectsOverlap(px,py,pw,ph, ballRect.x,ballRect.y,ballRect.w,ballRect.h)){
+        crane.failed = true;
+        die();
+      }
+
+      if(!crane.cleared && !crane.failed && crane.x + crane.w < px){
+        crane.cleared = true;
+        stats.cranesCleared++;
+        checkAchievements();
+      }
+
+      if(crane.x + crane.w < -40){
+        crane = null;
+        eventState = 'none';
+      }
+    }
+  }
+
+  function spawnEventWarnings(){
+    // a staggered handful of caution-tape and danger-sign props scrolling in during the rest window
+    for(let i = 0; i < 5; i++){
+      eventProps.push({
+        kind: (i % 2 === 0) ? 'tape' : 'sign',
+        x: W + 60 + i * 150,
+        w: 70,
+        seed: Math.floor(Math.random()*1000)
+      });
+    }
+  }
+
+  function spawnHole(lockoutPassed){
+    // hole width is derived from the actual jump arc at the *current* speed, so it always
+    // scales with how far a jump can carry the player — tight, but makeable with good timing.
+    // The hole also remembers this speed and scrolls at it for its whole lifetime (instead of
+    // the live, still-climbing game speed), so a speed-tier bump during its ~2s approach can
+    // never quietly shrink the timing window below what it was actually sized for.
+    const maxJumpDistance = speed * JUMP_AIR_TIME;
+    const w = maxJumpDistance * HOLE_TIGHTNESS;
+    // covered: every hole is now preceded by the lockout check, so it always shows as a
+    // closed floor rather than an open pit — whether it's actually safe depends entirely
+    // on lockoutPassed, which looks identical either way (that's the point of the lesson)
+    hole = { x: W + 40, w, speed, cleared: false, failed: false, covered: true, lockoutPassed: !!lockoutPassed };
+    lastObstacleEdge = hole.x + hole.w;
+    lastObstacleAction = 'jump';
+  }
+
+  let falling = false;
+  let fallY = 0;
+  let fallHole = null; // {x,w} snapshot of the hole's screen position — frozen in place while falling
+
+  function fallIntoHole(){
+    shake = Math.max(shake, 0.8);
+    playCrash();
+    falling = true;
+    fallY = player.y;
+    fallHole = { x: hole.x, w: hole.w };
+    hole = null;
+    player.vy = 0;
+    player.sliding = false; // standing pose uses player.y directly, so the figure visibly descends
+  }
+
+  function updateFalling(rawDt){
+    fallY += 460 * rawDt;
+    player.y = fallY;
+    if(fallY > H + 80){
+      falling = false;
+      enterBasement();
+    }
+  }
+
+  const BASEMENT_CEILING_Y = 44; // matches the ceiling band drawn in drawBasementBackground
+
+  function enterBasement(){
+    inBasement = true;
+    hole = null;
+    eventState = 'none';
+    obstacles = [];
+    powerups = []; // clear any leftover surface pickups (this is what let Slop survive into the basement)
+    eventProps = []; // clear any leftover caution tape/signage from the surface
+    cafeteria = null; // clear the leftover stall prop too — it was sitting frozen in the basement
+    lastObstacleEdge = -Infinity;
+    lastObstacleAction = null;
+    basementTime = 0;
+    basementSpawnTimer = 0;
+    basementNextGap = 1.2;
+    staircase = null;
+    player.slopTimer = 0; // no cafeteria in the basement — any active Slop buff ends here
+    metLightRed = false;
+    metCycleTimer = 0;
+    metPhaseLength = 4 + Math.random()*3;
+    metBoltTimer = 0;
+    lightningBolts = [];
+    player.onGround = true;
+    player.y = GROUND_Y;
+    player.vy = 0;
+  }
+
+  function updateBasement(dt){
+    basementTime += dt;
+    player.slopTimer = 0; // defensive backstop — Slop should be impossible down here, full stop
+
+    // MET box light cycle — starts green, randomly flips to a short red phase and back,
+    // alternating for as long as we're down here
+    metCycleTimer += dt;
+    if(metCycleTimer >= metPhaseLength){
+      metCycleTimer = 0;
+      metLightRed = !metLightRed;
+      metPhaseLength = metLightRed ? (1.2 + Math.random()*1.2) : (4 + Math.random()*3);
+      metBoltTimer = 0;
+    }
+
+    // while red, bouncing lightning bolts fire in from the right in a loose burst —
+    // but never while a ground/overhead hazard is already close enough to force a
+    // jump/slide, so the two threats can't stack into an unavoidable hit
+    if(metLightRed){
+      metBoltTimer += dt;
+      if(metBoltTimer >= 1 && !basementObstacleNearby()){
+        metBoltTimer = 0;
+        spawnLightningBolt();
+      }
+    }
+    updateLightningBolts(dt);
+
+    if(!staircase && basementTime < BASEMENT_DURATION){
+      basementSpawnTimer += dt;
+      if(basementSpawnTimer >= basementNextGap && !lightningNearby()){
+        basementSpawnTimer = 0;
+        spawnBasementHazard();
+        basementNextGap = 0.85 + Math.random()*0.55;
+      }
+    }
+
+    if(!staircase && basementTime >= BASEMENT_DURATION){
+      spawnStaircase();
+    }
+
+    if(staircase){
+      staircase.x -= speed * dt;
+      const pw = player.sliding ? 46 : player.w;
+      const px = player.x - pw/2 + (player.sliding ? 6 : 0);
+      if(px + pw > staircase.x && px < staircase.x + staircase.w){
+        exitBasement();
+      }
+    }
+  }
+
+  function basementObstacleNearby(){
+    // a hazard within ~0.45s of reaching the player — only blocks a spawn when a jump/slide
+    // is truly imminent, rather than blanketing the whole gap between hazards
+    const buffer = speed * 0.45;
+    return obstacles.some(ob => ob.x < player.x + buffer);
+  }
+
+  function lightningNearby(){
+    // the reverse check — a live (post-telegraph) bolt within ~0.5s of reaching the player
+    // blocks a new ground/overhead spawn, so the two hazard families can't stack unfairly
+    // in either direction
+    return lightningBolts.some(b => b.telegraph <= 0 && b.x > player.x - 50 && (b.x - player.x) / Math.abs(b.vx) < 0.5);
+  }
+
+  function spawnLightningBolt(){
+    // fires toward the player but angled up or down, never a direct flat shot
+    const vy = (Math.random() < 0.5 ? -1 : 1) * (110 + Math.random()*90);
+    lightningBolts.push({
+      x: W + 20,
+      y: BASEMENT_CEILING_Y + 20 + Math.random()*(GROUND_Y - BASEMENT_CEILING_Y - 40),
+      vx: -(420 + Math.random()*100),
+      vy: vy,
+      r: 9,
+      telegraph: 0.35 // brief warning window before this bolt can actually hit
+    });
+  }
+
+  function updateLightningBolts(dt){
+    for(const b of lightningBolts){
+      if(b.telegraph > 0){ b.telegraph = Math.max(0, b.telegraph - dt); continue; } // holds in place while telegraphing
+      b.x += b.vx*dt;
+      b.y += b.vy*dt;
+      // bounce off the ceiling and the floor
+      if(b.y < BASEMENT_CEILING_Y + b.r){ b.y = BASEMENT_CEILING_Y + b.r; b.vy = Math.abs(b.vy); }
+      if(b.y > GROUND_Y - b.r){ b.y = GROUND_Y - b.r; b.vy = -Math.abs(b.vy); }
+    }
+    lightningBolts = lightningBolts.filter(b => b.x + b.r > -20);
+
+    const pw = player.sliding ? 46 : player.w;
+    const ph = player.sliding ? 30 : player.h;
+    const px = player.x - pw/2 + (player.sliding ? 6 : 0);
+    const py = player.sliding ? GROUND_Y - ph + 4 : player.y - ph;
+    for(const b of lightningBolts){
+      if(b.telegraph > 0) continue; // can't hit anything while still just a warning
+      if(b.x+b.r > px && b.x-b.r < px+pw && b.y+b.r > py && b.y-b.r < py+ph){
+        die();
+        return;
+      }
+    }
+  }
+
+
+  const MOLTEN_FALL_DURATION = 0.85; // telegraphed fall time before it's actually dangerous
+
+  function spawnBasementHazard(){
+    const ob = { hit: false };
+    const roll = Math.random();
+    if(roll < 0.25){
+      ob.type = 'ground';
+      ob.skin = 'sparkbox';
+      ob.w = 30; ob.h = 40;
+      ob.y = GROUND_Y - ob.h;
+      ob.x = W + 40;
+      placeObstacle(ob, 'jump');
+    } else if(roll < 0.5){
+      ob.type = 'overhead';
+      ob.skin = 'livewire';
+      ob.w = 64; ob.h = 20;
+      const bottom = GROUND_Y - 40;
+      ob.y = bottom - ob.h;
+      ob.x = W + 40;
+      placeObstacle(ob, 'slide');
+    } else if(roll < 0.75){
+      ob.type = 'ground';
+      ob.skin = 'moltendrop';
+      ob.w = 26; ob.h = 16;
+      ob.y = GROUND_Y - ob.h;
+      ob.x = W + 40;
+      ob.age = 0;
+      placeObstacle(ob, 'jump');
+    } else {
+      ob.type = 'ground';
+      ob.skin = 'scrapbarrel';
+      ob.w = 34; ob.h = 34;
+      ob.y = GROUND_Y - ob.h;
+      ob.x = W + 40;
+      placeObstacle(ob, 'jump');
+    }
+  }
+
+  function spawnStaircase(){
+    staircase = { x: W + 60, w: 54, h: 96, y: GROUND_Y - 96 };
+  }
+
+  function exitBasement(){
+    inBasement = false;
+    staircase = null;
+    obstacles = [];
+    lastObstacleEdge = player.x + speed*3;
+    lastObstacleAction = null;
+    eventState = 'none';
+    lastEventScore = Math.floor(distance/10); // a breather before the next event can fire
+  }
+
+  function spawnCrane(){
+    // a crane rig with a wrecking ball swinging on a chain — width sized so the rig takes
+    // CRANE_DURATION seconds to cross at spawn-time speed (frozen for its lifetime, same
+    // reasoning as the hole). The ball's own swing (crane.t) is a fresh local clock starting
+    // at its highest, safest point, so there's a beat to read the pattern before the first
+    // low, dangerous pass — whether jump or slide clears it depends entirely on where the
+    // ball happens to be when it lines up with the player, not a single fixed action.
+    const w = speed * CRANE_DURATION;
+    crane = { x: W + 40, w, speed, t: 0, cleared: false, failed: false, ballX: 0, ballY: 0, pivotX: 0, pivotY: CRANE_RAIL_Y };
+    lastObstacleEdge = crane.x + crane.w;
+    lastObstacleAction = 'jump'; // mixed jump/slide hazard — give the next obstacle the safer gap
+  }
+
+  function spawnCafeteria(){
+    // a background stall — purely decorative, no collision of its own. It always brings
+    // exactly one Slop pickup with it, and clears/holds off obstacles in a generous window
+    // around the pickup so there's never an unfair trade-off to grab it.
+    cafeteria = { x: W + 80, w: 150, h: 110, y: GROUND_Y - 110 };
+
+    powerups.push({
+      x: cafeteria.x + 60,
+      y: GROUND_Y - 30,
+      w: 28, h: 26,
+      bobT: Math.random()*10,
+      collected: false,
+      kind: 'slop'
+    });
+
+    // clear a generous safe window around the stall/pickup, and hold the next obstacle
+    // back the same distance so nothing crowds in before the player has had a chance to grab it
+    const safeAhead = cafeteria.x + 260;
+    obstacles = obstacles.filter(ob => !(ob.x < safeAhead && ob.x + ob.w > cafeteria.x - 60));
+    lastObstacleEdge = Math.max(lastObstacleEdge, safeAhead);
+  }
+
+  function spawnForklift(){
+    // a red forklift driving in during the safe zone — sized and paced like a normal
+    // jump-over obstacle (mild difficulty), just with its own distinct look/animation
+    forklift = { x: W + 70, w: 67.2, h: 49, y: GROUND_Y - 49, hit: false };
+  }
+
+  function updateForklift(dt){
+    forklift.x -= speed * 1.2 * dt; // fairly fast — visibility does the safety work here, not a slow crawl
+
+    const pw = player.sliding ? 46 : player.w;
+    const ph = player.sliding ? 30 : player.h;
+    const px = player.x - pw/2 + (player.sliding ? 6 : 0);
+    const py = player.sliding ? GROUND_Y - ph + 4 : player.y - ph;
+
+    if(!forklift.hit && rectsOverlap(px,py,pw,ph, forklift.x,forklift.y,forklift.w,forklift.h)){
+      forklift.hit = true;
+      die();
+    }
+    if(forklift.x + forklift.w < -40){
+      forklift = null;
+    }
+  }
+
+  function update(rawDt){
+    if(falling){
+      updateFalling(rawDt);
+      return;
+    }
+
+    if(gamePaused){
+      updateMinigameTimer(rawDt);
+      return;
+    }
+
+    // Slop buff: slows the whole simulation by 30% (physics, scroll, spawn timers — everything
+    // downstream just uses `dt` as before and is none the wiser). The buff's own countdown and
+    // other UI timers stay on rawDt so they still count down in real seconds.
+    const dt = player.slopTimer > 0 ? rawDt * 0.7 : rawDt;
+
+    elapsed += dt;
+    distance += speed * dt;
+
+    // difficulty ramp — speed steps up 10% every 500 points
+    const score = Math.floor(distance/10);
+    const speedTier = Math.floor(score / 500);
+    speed = 300 * Math.pow(1.10, speedTier);
+    if(player.coffeeTimer > 0) speed *= 2;
+
+    if(score > runBestScore){
+      runBestScore = score;
+      checkAchievements();
+    }
+
+    // spawn gap is tuned in *pixels* at the baseline speed (300), then converted to a
+    // time gap for the current speed — this keeps on-screen spacing between obstacles
+    // roughly constant as speed increases, so jumps stay reasonable at any speed tier
+    const baseGapSeconds = Math.max(0.68, 1.15 - elapsed*0.008);
+    nextSpawnGap = baseGapSeconds * (300 / speed);
+
+    // jump
+    if(jumpPressed && player.onGround && !player.sliding){
+      player.vy = JUMP_V;
+      player.onGround = false;
+      spawnDust(player.x, GROUND_Y);
+      playJump();
+    }
+    jumpPressed = false;
+
+    // slide
+    player.sliding = keys.slide && player.onGround;
+
+    // gravity
+    player.prevOnGround = player.onGround;
+    if(!player.onGround){
+      player.vy += GRAVITY * dt;
+      player.y += player.vy * dt;
+      if(player.y >= GROUND_Y){
+        player.y = GROUND_Y;
+        player.vy = 0;
+        player.onGround = true;
+      }
+    } else {
+      player.y = GROUND_Y;
+    }
+
+    // just landed — mild shake, boop, dust
+    if(player.onGround && !player.prevOnGround){
+      shake = Math.max(shake, 0.35);
+      playBoop();
+      spawnDust(player.x, GROUND_Y);
+    }
+
+    player.legPhase += dt * (player.onGround ? speed*0.02 : 0);
+
+    if(inBasement){
+      updateBasement(dt);
+    } else {
+      // random events — a guaranteed calm/warning stretch, then a tight hole jump
+      updateRandomEvent(dt, score);
+
+      // spawn — suppressed during a random event so it doesn't collide with the hole/warning stretch
+      if(eventState === 'none'){
+        spawnTimer += dt;
+        if(spawnTimer >= nextSpawnGap){
+          spawnTimer = 0;
+          spawnObstacle();
+        }
+      }
+    }
+
+    // move obstacles
+    for(const ob of obstacles){
+      ob.x -= speed * dt;
+      if(ob.age !== undefined) ob.age += dt;
+    }
+    obstacles = obstacles.filter(ob => ob.x + ob.w > -20);
+    if(lastObstacleEdge > -Infinity) lastObstacleEdge -= speed * dt;
+
+    // collision
+    const pw = player.sliding ? 46 : player.w;
+    const ph = player.sliding ? 30 : player.h;
+    const px = player.x - pw/2 + (player.sliding ? 6 : 0);
+    const py = player.sliding ? GROUND_Y - ph + 4 : player.y - ph;
+
+    for(const ob of obstacles){
+      const hr = getHazardRect(ob);
+      let stemHit = false;
+      if(ob.skin === 'anode-dropped'){
+        const sr = getAnodeStemRect(ob);
+        stemHit = rectsOverlap(px, py, pw, ph, sr.x, sr.y, sr.w, sr.h);
+      }
+      if(!ob.hit && (rectsOverlap(px, py, pw, ph, hr.x, hr.y, hr.w, hr.h) || stemHit)){
+        if(player.hasShield){
+          ob.hit = true;
+          player.hasShield = false;
+          player.shieldFlash = 0.5;
+          shake = Math.max(shake, 0.5);
+          playShieldBreak();
+          stats.hardHatsUsed++;
+          checkAchievements();
+        } else {
+          die();
+        }
+        break;
+      }
+
+      // close-call tracking: horizontally overlapping the hazard but cleared it with a
+      // slim vertical margin — counted once per obstacle the first time it dips that low
+      if(!ob.hit && !ob.closeCallCounted){
+        const overlapX = px < hr.x + hr.w && px + pw > hr.x;
+        if(overlapX){
+          let clearance = -1;
+          if(py + ph <= hr.y) clearance = hr.y - (py + ph);       // cleared above (jumped it)
+          else if(py >= hr.y + hr.h) clearance = py - (hr.y + hr.h); // cleared below (slid under it)
+          if(clearance >= 0 && clearance < 14){
+            ob.closeCallCounted = true;
+            stats.closeCalls++;
+            checkAchievements();
+          }
+        }
+      }
+    }
+
+    // powerups: drift, bob, and check for collection
+    for(const pu of powerups){ pu.x -= speed * dt; pu.bobT += dt; }
+    powerups = powerups.filter(pu => pu.x + pu.w > -20 && !pu.collected);
+
+    const cpw = player.sliding ? 46 : player.w;
+    const cph = player.sliding ? 30 : player.h;
+    const cpx = player.x - cpw/2 + (player.sliding ? 6 : 0);
+    const cpy = player.sliding ? GROUND_Y - cph + 4 : player.y - cph;
+    for(const pu of powerups){
+      if(!pu.collected && rectsOverlap(cpx, cpy, cpw, cph, pu.x, pu.y, pu.w, pu.h)){
+        pu.collected = true;
+        if(pu.kind === 'shield'){
+          player.hasShield = true;
+          player.shieldFlash = 0.5;
+          playPowerup('shield');
+        } else if(pu.kind === 'highlight'){
+          player.highlightTimer = 15;
+          player.shieldFlash = 0.5;
+          playPowerup('highlight');
+          stats.booksCollected++;
+          checkAchievements();
+        } else if(pu.kind === 'slop'){
+          player.slopTimer = 15;
+          player.shieldFlash = 0.5;
+          playPowerup('slop');
+        } else if(pu.kind === 'ingot'){
+          runIngots += 1;
+          totalIngots += 1;
+          ingotLabel.textContent = '◆ ' + totalIngots;
+          floatTexts.push({ x: pu.x, y: pu.y-14, text: '+1 ◆', color: '#DDE4E8', t: 0 });
+          ingotLabel.classList.remove('ingot-pop');
+          void ingotLabel.offsetWidth; // restart the animation even on back-to-back pickups
+          ingotLabel.classList.add('ingot-pop');
+          playPowerup('ingot');
+          saveIngots();
+        } else if(pu.kind === 'water'){
+          hydration = Math.min(100, hydration + 50);
+          updateHydrationMeter();
+          floatTexts.push({ x: pu.x, y: pu.y-14, text: '+50% Hydration', color: '#8FD8F0', t: 0 });
+          playPowerup('water');
+        }
+      }
+    }
+
+    // spawn a hard-hat shield powerup — at most one per 1500 points, independent of the book
+    if(eventState === 'none' && !player.hasShield && score - lastHardHatScore >= 1500 && powerupSpawnSafe(28) && powerupOverlapSafe(W+40, 40) && Math.random() < 0.006){
+      powerups.push({
+        x: W + 40,
+        y: GROUND_Y - 30,
+        w: 28, h: 28,
+        bobT: Math.random()*10,
+        collected: false,
+        kind: 'shield'
+      });
+      lastHardHatScore = score;
+    }
+
+    // spawn a "take 5" book powerup — at most one per 1500 points, independent of the hard hat
+    if(eventState === 'none' && player.highlightTimer <= 0 && score - lastBookScore >= 1500 && powerupSpawnSafe(26) && powerupOverlapSafe(W+40, 40) && Math.random() < 0.006){
+      powerups.push({
+        x: W + 40,
+        y: GROUND_Y - 30,
+        w: 26, h: 30,
+        bobT: Math.random()*10,
+        collected: false,
+        kind: 'highlight'
+      });
+      lastBookScore = score;
+    }
+
+    // spawn a cafeteria — a background stall that always brings a guaranteed Slop pickup
+    // with it, and clears the road ahead so the pickup is easy and safe to grab
+    if(eventState === 'none' && !cafeteria && player.slopTimer <= 0 && score - lastCafeteriaScore >= 1800 && powerupSpawnSafe(40) && Math.random() < 0.003){
+      spawnCafeteria();
+      lastCafeteriaScore = score;
+    }
+    if(cafeteria){
+      cafeteria.x -= speed * dt;
+      if(cafeteria.x + cafeteria.w < -60) cafeteria = null;
+    }
+
+    // spawn the safety guy — rare on purpose, meant to feel like a treat to run into
+    // rather than a regular event. Reaching him pauses the run for a mini-game.
+    if(eventState === 'none' && safetyGuyEligibleThisRun && !safetyGuy && score - lastSafetyScore >= SAFETY_EVENT_GAP && powerupSpawnSafe(50) && Math.random() < 0.0012){
+      safetyGuy = { x: W + 80, w: 40, h: 70, y: GROUND_Y - 70 };
+      lastSafetyScore = score;
+    }
+    if(safetyGuy){
+      safetyGuy.x -= speed * dt;
+      if(safetyGuy.x <= player.x + 16){
+        startSafetyMinigame();
+      } else if(safetyGuy.x + safetyGuy.w < -60){
+        safetyGuy = null; // shouldn't normally happen, but keep the world tidy just in case
+      }
+    }
+
+    // spawn an ingot — the core currency. Frequent but worth only 1 each, by design:
+    // a slow grind, with the bigger chunk coming from the end-of-run distance bonus
+    if(eventState === 'none' && score - lastIngotScore >= 220 && powerupSpawnSafe(24) && powerupOverlapSafe(W+40, 40) && Math.random() < 0.01){
+      powerups.push({
+        x: W + 40,
+        y: GROUND_Y - 32,
+        w: 24, h: 24,
+        bobT: Math.random()*10,
+        collected: false,
+        kind: 'ingot'
+      });
+      lastIngotScore = score;
+    }
+
+    // spawn a water bottle — restores 50% hydration on pickup. Below a danger threshold,
+    // spawning becomes guaranteed (not just a random roll) so a bottle always shows up
+    // before hydration can actually run out — dying without ever seeing one shouldn't happen.
+    const waterUrgent = hydration <= 35;
+    const waterRoll = waterUrgent ? true : Math.random() < 0.02;
+    if(eventState === 'none' && hydration < 90 && score - lastWaterScore >= 200 && powerupSpawnSafe(26) && powerupOverlapSafe(W+40, 40) && waterRoll){
+      powerups.push({
+        x: W + 40,
+        y: GROUND_Y - 30,
+        w: 20, h: 30,
+        bobT: Math.random()*10,
+        collected: false,
+        kind: 'water'
+      });
+      lastWaterScore = score;
+    }
+
+    // hydration — slowly drains over time; hitting empty is fatal, same as any other hazard
+    if(hydration > 0){
+      hydration = Math.max(0, hydration - HYDRATION_DECAY_RATE*dt);
+      updateHydrationMeter();
+      if(hydration <= 0) die();
+    }
+
+    if(player.shieldFlash > 0) player.shieldFlash = Math.max(0, player.shieldFlash - rawDt*2);
+    if(player.highlightTimer > 0) player.highlightTimer = Math.max(0, player.highlightTimer - rawDt);
+    if(player.slopTimer > 0) player.slopTimer = Math.max(0, player.slopTimer - rawDt);
+    if(player.coffeeTimer > 0) player.coffeeTimer = Math.max(0, player.coffeeTimer - rawDt);
+
+    // particles
+    for(const p of particles){ p.t += dt; p.x -= speed*0.4*dt; p.y -= p.vy*dt; p.vy -= 200*dt; }
+    particles = particles.filter(p => p.t < 0.5);
+
+    // pickup float texts (e.g. "+1 ◆")
+    for(const f of floatTexts){ f.t += dt; f.x -= speed*dt; f.y -= 34*dt; }
+    floatTexts = floatTexts.filter(f => f.t < 1.0);
+
+    if(shake > 0) shake = Math.max(0, shake - dt*3);
+  }
+
+  function rectsOverlap(x1,y1,w1,h1, x2,y2,w2,h2){
+    return x1 < x2+w2 && x1+w1 > x2 && y1 < y2+h2 && y1+h1 > y2;
+  }
+
+  // the real hazard extent for collision (and for the highlight outline) — for anodes this
+  // still reaches well above the visible chain, so jumping the whole rig is never possible,
+  // even though the chain art itself is now drawn short rather than reaching the rail
+  const ANODE_HAZARD_TOP = 20;
+  function getHazardRect(ob){
+    if(ob.skin === 'anode'){
+      return { x: ob.x, y: ANODE_HAZARD_TOP, w: ob.w, h: (ob.y + ob.h) - ANODE_HAZARD_TOP };
+    }
+    if(ob.skin === 'moltendrop' && ob.age < MOLTEN_FALL_DURATION){
+      return { x: -9999, y: -9999, w: 0, h: 0 }; // still falling — just a warning, not dangerous yet
+    }
+    return { x: ob.x, y: ob.y, w: ob.w, h: ob.h };
+  }
+
+  function spawnDust(x,y){
+    for(let i=0;i<5;i++){
+      particles.push({ x: x + (Math.random()-0.5)*10, y: y-2, vy: 40+Math.random()*60, t:0 });
+    }
+  }
+
+  const DEATH_HEADLINES = [
+    "Let's pretend nobody saw that",
+    "If bad ideas paid overtime you'd be rich",
+    "Safety meeting. My office, 5 minutes ago"
+  ];
+
+  const DEATH_TTS_ENABLED = false; // temporarily disabled — flip back to true to re-enable
+
+  function die(){
+    if(player.coffeeTimer > 0) return; // coffee buff: fully invulnerable, ignore any death trigger
+    state = 'dead';
+    shake = 1;
+    playCrash();
+    if(DEATH_TTS_ENABLED) playCrashVoice();
+    stats.deaths++;
+    saveStats();
+    checkAchievements();
+    deathHeadline.textContent = DEATH_HEADLINES[Math.floor(Math.random()*DEATH_HEADLINES.length)];
+    const finalScore = Math.floor(distance/10);
+    let isNew = false;
+    if(finalScore > best){ best = finalScore; isNew = true; saveBest(); }
+    finalScoreEl.textContent = finalScore;
+    finalBestEl.textContent = best;
+    bestLabel.textContent = 'BEST ' + best;
+    newBestNote.classList.toggle('hidden', !isNew);
+
+    // end-of-run ingot bonus — a slow trickle on top of in-run pickups, scaled to distance
+    const bonus = Math.floor(finalScore / 500);
+    runIngots += bonus;
+    totalIngots += bonus;
+    ingotLabel.textContent = '◆ ' + totalIngots;
+    ingotBonusNote.textContent = `◆ +${runIngots} ingots this run`;
+    saveIngots();
+
+    setTimeout(()=>{ overOverlay.classList.add('show'); }, 260);
+  }
+
+  // ---------- hand-drawn helpers ----------
+  function jit(){ return (Math.random()-0.5)*1.6; }
+
+  function sketchLine(x1,y1,x2,y2){
+    ctx.beginPath();
+    ctx.moveTo(x1+jit(), y1+jit());
+    const mx = (x1+x2)/2 + jit();
+    const my = (y1+y2)/2 + jit();
+    ctx.quadraticCurveTo(mx, my, x2+jit(), y2+jit());
+    ctx.stroke();
+  }
+
+  function sketchRect(x,y,w,h){
+    sketchLine(x,y,x+w,y);
+    sketchLine(x+w,y,x+w,y+h);
+    sketchLine(x+w,y+h,x,y+h);
+    sketchLine(x,y+h,x,y);
+    // light hatching
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    for(let i=6;i<w;i+=8){
+      sketchLine(x+i, y+2, x+i-6, y+h-2);
+    }
+    ctx.restore();
+  }
+
+  // ---------- plant zones (cycle every 1000 pts, reflavors lighting/area) ----------
+  const SEASON_LEN = 1000;
+  const SEASONS = [
+    { // production floor — bright neutral fluorescent light
+      name: 'floor',
+      skyTop: '#E7EAED', skyBottom: '#D6DADD',
+      ground: '#C7CCD0', groundDeep: '#AAB0B5',
+      grid: '#BFC5C9', pillar: '#6B7177'
+    },
+    { // smelter bay — warm pale amber glow
+      name: 'smelter',
+      skyTop: '#EFDFC0', skyBottom: '#E4C795',
+      ground: '#D6BD8F', groundDeep: '#B89C6C',
+      grid: '#CBAE79', pillar: '#5A4A38'
+    },
+    { // cold storage / shipping dock — cool pale light
+      name: 'cold',
+      skyTop: '#DCE7ED', skyBottom: '#C6D6DE',
+      ground: '#BBCBD3', groundDeep: '#9DAFB8',
+      grid: '#AEBFC6', pillar: '#48575F'
+    }
+  ];
+
+  function hexToRgb(hex){
+    const v = parseInt(hex.slice(1), 16);
+    return [(v>>16)&255, (v>>8)&255, v&255];
+  }
+  function lerpColor(hexA, hexB, t){
+    const a = hexToRgb(hexA), b = hexToRgb(hexB);
+    const r = Math.round(a[0] + (b[0]-a[0])*t);
+    const g = Math.round(a[1] + (b[1]-a[1])*t);
+    const bl = Math.round(a[2] + (b[2]-a[2])*t);
+    return `rgb(${r},${g},${bl})`;
+  }
+  // for multi-step blends (day color -> zone tint -> night tint) — works on plain
+  // RGB arrays throughout so nothing ever gets re-parsed as hex after being
+  // stringified, which is what was silently producing black before
+  function mixRgb(rgbA, rgbB, t){
+    return [
+      Math.round(rgbA[0] + (rgbB[0]-rgbA[0])*t),
+      Math.round(rgbA[1] + (rgbB[1]-rgbA[1])*t),
+      Math.round(rgbA[2] + (rgbB[2]-rgbA[2])*t)
+    ];
+  }
+  function rgbToStr(rgb){ return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`; }
+
+  function getSeasonBlend(){
+    const score = Math.floor(distance/10);
+    const idx = ((Math.floor(score / SEASON_LEN) % SEASONS.length) + SEASONS.length) % SEASONS.length;
+    const progress = (score % SEASON_LEN) / SEASON_LEN;
+    const nextIdx = (idx + 1) % SEASONS.length;
+    // blend over the last 15% of each zone for a smooth changeover
+    const t = progress > 0.85 ? (progress - 0.85) / 0.15 : 0;
+    return { a: SEASONS[idx], b: SEASONS[nextIdx], t };
+  }
+
+  // ---------- day/night cycle ----------
+  // runs on score/distance rather than real time, so every game starts in day and
+  // reaches night by the same point count regardless of how fast the run is going
+  const DAYNIGHT_CYCLE_SCORE = 4000; // full day+night loop, in points — night hits at half (2000)
+  const DAY_SKY_TOP = '#3D9BE9';
+  const DAY_SKY_BOTTOM = '#CFEFFB';
+  const NIGHT_SKY_TOP = '#1B2C52';
+  const NIGHT_SKY_BOTTOM = '#334876';
+  const STAR_SEED = [];
+  (function seedStars(){
+    for(let i=0;i<50;i++){
+      STAR_SEED.push({ x: Math.random()*W, y: Math.random()*(GROUND_Y*0.62), r: 0.6+Math.random()*1.2, tw: Math.random()*10 });
+    }
+  })();
+
+  const HOME_CYCLE_LEN = 30; // seconds — full day+night loop while idle/on the home screen
+  function bgClock(){ return state==='playing' ? elapsed : idleTime; }
+  function bgScroll(){ return state==='playing' ? distance : idleTime*60; }
+  function getCycleT(){
+    if(state !== 'playing'){
+      return (idleTime % HOME_CYCLE_LEN) / HOME_CYCLE_LEN;
+    }
+    const score = Math.floor(distance/10);
+    return (score % DAYNIGHT_CYCLE_SCORE) / DAYNIGHT_CYCLE_SCORE;
+  }
+  function smoothstep(t){ return t*t*(3-2*t); }
+
+  function getDaylight(cycleT){
+    // plateaus at full day and full night instead of a pure sine blend, so daytime
+    // actually holds at true full brightness for a long stretch instead of starting
+    // to dim from the very first point scored
+    let raw;
+    if(cycleT < 0.3) raw = 1;                                   // full day
+    else if(cycleT < 0.5) raw = 1 - smoothstep((cycleT-0.3)/0.2); // dusk
+    else if(cycleT < 0.8) raw = 0;                               // full night
+    else raw = smoothstep((cycleT-0.8)/0.2);                     // dawn
+    // capped so "full night" is still fairly readable — never pitch black
+    return 0.22 + raw*0.78;
+  }
+
+  function drawMountainsAndFactories(daylight){
+    const baseY = GROUND_Y * 0.62;
+    const mtnColor = lerpColor('#2E3A4A', '#232E42', 1-daylight);
+    const mtnColor2 = lerpColor('#3C4B5E', '#2C3A54', 1-daylight);
+    // far mountain range — slow parallax, doesn't scroll with the shop itself
+    const mOffset = (bgScroll()*0.04) % 260;
+    ctx.fillStyle = mtnColor;
+    ctx.beginPath();
+    ctx.moveTo(-260+(-mOffset), baseY);
+    for(let x=-260-mOffset; x<W+260; x+=130){
+      const peak = baseY - (34 + 26*Math.abs(Math.sin(x*0.011)));
+      ctx.lineTo(x+65, peak);
+      ctx.lineTo(x+130, baseY);
+    }
+    ctx.lineTo(W+260, baseY);
+    ctx.lineTo(W+260, GROUND_Y);
+    ctx.lineTo(-260, GROUND_Y);
+    ctx.closePath();
+    ctx.fill();
+
+    // nearer, slightly lighter ridge + a couple of factory building silhouettes with stacks
+    const fOffset = (bgScroll()*0.09) % 300;
+    ctx.fillStyle = mtnColor2;
+    ctx.beginPath();
+    ctx.moveTo(-300-fOffset, GROUND_Y+2);
+    for(let x=-300-fOffset; x<W+300; x+=150){
+      const peak = baseY - (14 + 16*Math.abs(Math.cos(x*0.013)));
+      ctx.lineTo(x+75, peak);
+      ctx.lineTo(x+150, baseY+10);
+    }
+    ctx.lineTo(W+300, GROUND_Y+2);
+    ctx.closePath();
+    ctx.fill();
+
+    // factory buildings + smokestacks along the near ridge, evenly spaced
+    for(let x=-fOffset+60; x<W+300; x+=220){
+      const by = baseY+8;
+      ctx.fillStyle = mtnColor2;
+      ctx.fillRect(x, by-30, 46, 34);
+      ctx.fillRect(x+52, by-16, 5, 40);
+      ctx.fillRect(x+66, by-22, 5, 46);
+      // a small lit window at night
+      if(daylight < 0.45){
+        ctx.fillStyle = `rgba(232,140,40,${0.5*(1-daylight/0.45)})`;
+        ctx.fillRect(x+8, by-22, 6, 6);
+        ctx.fillRect(x+22, by-22, 6, 6);
+      }
+    }
+  }
+
+  function drawGreenHills(daylight){
+    // a nearer, rolling green hill line between the distant mountains and the ground —
+    // this is what actually sells "outdoors" alongside the blue sky
+    const baseY = GROUND_Y * 0.82;
+    const hillColor = lerpColor('#6FAE4A', '#28331F', 1-daylight);
+    const hillColor2 = lerpColor('#5C9A3C', '#212B1A', 1-daylight);
+    const hOffset = (bgScroll()*0.16) % 240;
+
+    ctx.fillStyle = hillColor;
+    ctx.beginPath();
+    ctx.moveTo(-240-hOffset, GROUND_Y+2);
+    for(let x=-240-hOffset; x<W+240; x+=120){
+      const peak = baseY - (16 + 14*Math.sin(x*0.017));
+      ctx.quadraticCurveTo(x+60, peak, x+120, baseY);
+    }
+    ctx.lineTo(W+240, GROUND_Y+2);
+    ctx.closePath();
+    ctx.fill();
+
+    const hOffset2 = (bgScroll()*0.22) % 200;
+    ctx.fillStyle = hillColor2;
+    ctx.beginPath();
+    ctx.moveTo(-200-hOffset2, GROUND_Y+2);
+    for(let x=-200-hOffset2; x<W+200; x+=100){
+      const peak = baseY - (8 + 10*Math.cos(x*0.021));
+      ctx.quadraticCurveTo(x+50, peak+10, x+100, baseY+8);
+    }
+    ctx.lineTo(W+200, GROUND_Y+2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawCelestialBody(daylight, cycleT){
+    // arcs left-to-right across the upper sky over the course of a full cycle
+    const arcX = cycleT * (W+120) - 60;
+    const arcY = (GROUND_Y*0.5) - Math.sin(cycleT*Math.PI*2) * (GROUND_Y*0.32) - GROUND_Y*0.18;
+    if(arcY > GROUND_Y*0.55) return; // below the horizon, don't draw
+    if(daylight > 0.61){
+      // sun
+      const a = Math.min(1, (daylight-0.61)*3.5);
+      ctx.fillStyle = `rgba(255,214,102,${a})`;
+      ctx.beginPath(); ctx.arc(arcX, arcY, 22, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = `rgba(255,240,190,${a})`;
+      ctx.beginPath(); ctx.arc(arcX, arcY, 13, 0, Math.PI*2); ctx.fill();
+    } else {
+      // moon
+      const a = Math.min(1, (0.61-daylight)*3.5);
+      ctx.fillStyle = `rgba(226,230,238,${a})`;
+      ctx.beginPath(); ctx.arc(arcX, arcY, 16, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = `rgba(180,190,205,${a})`;
+      ctx.beginPath(); ctx.arc(arcX+6, arcY-4, 14, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  function drawStars(daylight){
+    if(daylight > 0.55) return;
+    const a = Math.min(1, (0.55-daylight)/0.33);
+    for(const s of STAR_SEED){
+      const tw = 0.6 + 0.4*Math.sin(bgClock()*2 + s.tw);
+      ctx.fillStyle = `rgba(255,255,255,${a*tw})`;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  function drawClouds(daylight){
+    if(daylight < 0.35) return;
+    const a = Math.min(1, (daylight-0.35)/0.4);
+    const cOffset = (bgScroll()*0.12 + bgClock()*6) % (W+300);
+    ctx.fillStyle = `rgba(255,255,255,${0.55*a})`;
+    for(let i=0;i<4;i++){
+      const cx = ((i*220 - cOffset) % (W+300)) - 150;
+      const cy = 30 + (i%2)*22;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, 26, 10, 0, 0, Math.PI*2);
+      ctx.ellipse(cx+20, cy-4, 18, 9, 0, 0, Math.PI*2);
+      ctx.ellipse(cx-18, cy+2, 16, 8, 0, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // ---------- drawing ----------
+  function drawPillar(x, groundTopY, zone, seed, broken){
+    const w = 14;
+
+    if(broken){
+      const h = 90 + (seed % 3) * 14;
+      const lean = (0.22 + (seed % 3) * 0.05) * (seed % 2 === 0 ? 1 : -1);
+      ctx.save();
+      ctx.translate(x, groundTopY);
+      ctx.rotate(lean);
+      ctx.fillStyle = zone.pillar;
+      ctx.fillRect(-w/2, -h, w, h);
+      ctx.strokeStyle = '#1C1E20';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(-w/2, -h, w, h);
+      // jagged snapped-off top
+      ctx.fillStyle = '#15171A';
+      ctx.beginPath();
+      ctx.moveTo(-w/2, -h);
+      ctx.lineTo(-w/2+4, -h-9);
+      ctx.lineTo(0, -h-3);
+      ctx.lineTo(w/2-3, -h-11);
+      ctx.lineTo(w/2, -h);
+      ctx.closePath();
+      ctx.fill();
+      // rivets
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      for(let ry = -h+16; ry < -14; ry += 26){
+        ctx.beginPath(); ctx.arc(-3, ry, 1.4, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(3, ry, 1.4, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+      // rubble pile at the base
+      ctx.fillStyle = '#2E3236';
+      for(let rx = -18; rx <= 18; rx += 7){
+        const rh = 4 + Math.abs(Math.sin(rx + seed)) * 6;
+        ctx.fillRect(x+rx, groundTopY-rh, 6, rh);
+      }
+      return;
+    }
+
+    const h = 150 + (seed % 3) * 20;
+    const top = groundTopY - h;
+
+    // shaft — solid filled steel beam, not a thin branching line
+    ctx.fillStyle = zone.pillar;
+    ctx.fillRect(x - w/2, top, w, h);
+    ctx.strokeStyle = '#1C1E20';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x - w/2, top, w, h);
+
+    // top and base flange plates
+    ctx.fillStyle = '#2E3236';
+    ctx.fillRect(x - w/2 - 6, top, w + 12, 7);
+    ctx.fillRect(x - w/2 - 6, groundTopY - 9, w + 12, 9);
+
+    // rivet dots down the shaft
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    for(let ry = top + 16; ry < groundTopY - 12; ry += 26){
+      ctx.beginPath(); ctx.arc(x - 3, ry, 1.4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + 3, ry, 1.4, 0, Math.PI*2); ctx.fill();
+    }
+
+    // hazard stripe band near the base
+    ctx.fillStyle = '#E8B93B';
+    ctx.fillRect(x - w/2, groundTopY - 26, w, 6);
+  }
+
+  function drawGuardRail(x, groundTopY, seed){
+    const w = 70, postH = 26;
+    // posts
+    ctx.fillStyle = '#4A4D50';
+    ctx.fillRect(x-w/2, groundTopY-postH, 5, postH);
+    ctx.fillRect(x+w/2-5, groundTopY-postH, 5, postH);
+    // dusty, faded yellow rails
+    ctx.strokeStyle = 'rgba(196,178,90,0.8)';
+    ctx.lineWidth = 5;
+    sketchLine(x-w/2, groundTopY-postH+6, x+w/2, groundTopY-postH+6);
+    sketchLine(x-w/2, groundTopY-8, x+w/2, groundTopY-8);
+    // grime speckle overlay
+    ctx.fillStyle = 'rgba(90,78,58,0.45)';
+    for(let dx = -w/2+6; dx < w/2; dx += 9){
+      ctx.beginPath();
+      ctx.arc(x+dx, groundTopY-postH+6+Math.sin(dx+seed)*2, 1.3, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x+dx, groundTopY-8+Math.cos(dx+seed)*2, 1.1, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function drawForkliftFire(x, groundTopY, seed){
+    const w = 44, h = 26;
+    const bodyY = groundTopY - h;
+    // wheels
+    ctx.fillStyle = '#15171A';
+    ctx.beginPath(); ctx.arc(x-w/2+8, groundTopY-4, 6, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x+w/2-8, groundTopY-4, 6, 0, Math.PI*2); ctx.fill();
+    // charred body
+    ctx.fillStyle = '#4A2E24';
+    ctx.fillRect(x-w/2, bodyY, w, h);
+    ctx.strokeStyle = '#15171A';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x-w/2, bodyY, w, h);
+    // mast and forks
+    ctx.strokeStyle = '#2E2C2A';
+    ctx.lineWidth = 3;
+    sketchLine(x+w/2-4, bodyY, x+w/2-4, bodyY-24);
+    sketchLine(x+w/2-4, groundTopY-6, x+w/2+14, groundTopY-6);
+    sketchLine(x+w/2-4, groundTopY-2, x+w/2+14, groundTopY-2);
+
+    // flickering flame
+    const flick = Math.sin(elapsed*9 + seed) * 3;
+    ctx.fillStyle = 'rgba(232,90,30,0.88)';
+    ctx.beginPath();
+    ctx.moveTo(x-10, bodyY);
+    ctx.quadraticCurveTo(x-6, bodyY-18+flick, x-2, bodyY-4);
+    ctx.quadraticCurveTo(x+2, bodyY-24-flick, x+8, bodyY-2);
+    ctx.quadraticCurveTo(x+4, bodyY-10, x, bodyY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(244,217,59,0.85)';
+    ctx.beginPath();
+    ctx.arc(x-2, bodyY-6+flick*0.4, 5, 0, Math.PI*2);
+    ctx.fill();
+
+    // drifting smoke puffs
+    ctx.fillStyle = 'rgba(70,70,68,0.28)';
+    for(let s=0; s<3; s++){
+      const sp = (elapsed*22 + seed*13 + s*18) % 60;
+      ctx.beginPath();
+      ctx.arc(x-2+Math.sin(sp*0.2+s)*4, bodyY-20-sp, 5+sp*0.15, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function drawMachine(x, groundTopY, zone, seed){
+    const h = 60 + (seed % 3) * 14;
+    const w = 46;
+    const top = groundTopY - h;
+    // tank/machine body
+    ctx.fillStyle = zone.pillar;
+    ctx.fillRect(x - w/2, top, w, h);
+    ctx.strokeStyle = '#1C1E20';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x - w/2, top, w, h);
+    // control panel light
+    ctx.fillStyle = seed % 2 === 0 ? '#E8B93B' : '#5FA0D6';
+    ctx.fillRect(x - w/2 + 6, top + 8, 6, 6);
+    // pipe running up to the rail
+    ctx.strokeStyle = '#7A8085';
+    ctx.lineWidth = 4;
+    sketchLine(x + w/2 - 6, top, x + w/2 - 6, 25);
+    // vent slats
+    ctx.strokeStyle = '#1C1E20';
+    ctx.lineWidth = 1.5;
+    for(let vy = top + h*0.35; vy < top + h*0.85; vy += 8){
+      sketchLine(x - w/2 + 6, vy, x + w/2 - 14, vy);
+    }
+  }
+
+  function drawReductionCell(x, groundTopY, zone, seed){
+    // a squat electrolytic reduction cell (pot) with a glowing molten slot and thick bus bars
+    const w = 64, h = 42;
+    const top = groundTopY - h;
+
+    // thick bus bars feeding in from the sides
+    ctx.strokeStyle = '#8A6A3C';
+    ctx.lineWidth = 6;
+    sketchLine(x - w/2 - 20, top + 10, x - w/2, top + 10);
+    sketchLine(x + w/2, top + 10, x + w/2 + 20, top + 10);
+
+    // cell body
+    ctx.fillStyle = zone.pillar;
+    ctx.fillRect(x - w/2, top, w, h);
+    ctx.strokeStyle = '#1C1E20';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x - w/2, top, w, h);
+
+    // glowing molten slot along the top
+    const glow = Math.sin(elapsed*3 + seed) * 0.15;
+    ctx.fillStyle = `rgba(232,140,40,${0.55+glow})`;
+    ctx.fillRect(x - w/2 + 5, top + 5, w - 10, 6);
+    if(!cachedFactoryHaloGradient){
+      cachedFactoryHaloGradient = ctx.createRadialGradient(0, 0, 2, 0, 0, 30);
+      cachedFactoryHaloGradient.addColorStop(0, 'rgba(232,140,40,0.45)');
+      cachedFactoryHaloGradient.addColorStop(1, 'rgba(232,140,40,0)');
+    }
+    ctx.save();
+    ctx.translate(x, top+8);
+    ctx.globalAlpha = (0.3+glow) / 0.45; // scale relative to the baked-in 0.45 reference alpha
+    ctx.fillStyle = cachedFactoryHaloGradient;
+    ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    // rivet seams
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 1.2;
+    for(let i = 10; i < w; i += 14){
+      sketchLine(x - w/2 + i, top + 16, x - w/2 + i, top + h - 3);
+    }
+  }
+
+  function drawAluminaSilo(x, groundTopY, zone, seed){
+    // tall cylindrical storage silo with a conical hopper base
+    const h = 120 + (seed % 3) * 16;
+    const r = 20;
+    const top = groundTopY - h;
+
+    ctx.fillStyle = zone.pillar;
+    ctx.beginPath();
+    ctx.moveTo(x - r, top + 14);
+    ctx.lineTo(x - r, groundTopY - 20);
+    ctx.lineTo(x, groundTopY);
+    ctx.lineTo(x + r, groundTopY - 20);
+    ctx.lineTo(x + r, top + 14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#1C1E20';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // domed cap
+    ctx.beginPath();
+    ctx.arc(x, top + 14, r, Math.PI, 0);
+    ctx.fill();
+    ctx.stroke();
+
+    // banding rings
+    ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+    ctx.lineWidth = 2;
+    for(let ry = top + 34; ry < groundTopY - 26; ry += 24){
+      sketchLine(x - r + 2, ry, x + r - 2, ry);
+    }
+
+    // small feed pipe into the top
+    ctx.strokeStyle = '#7A8085';
+    ctx.lineWidth = 3;
+    sketchLine(x + r, top + 10, x + r + 14, top - 6);
+  }
+
+  function drawIngotStack(x, groundTopY, zone, seed){
+    // a stacked pile of cast aluminum ingots sitting at floor level
+    const rows = 3;
+    const ingotW = 22, ingotH = 10;
+    for(let row = 0; row < rows; row++){
+      const count = rows - row;
+      const rowY = groundTopY - (row+1)*ingotH;
+      const rowStartX = x - (count*ingotW)/2;
+      for(let i = 0; i < count; i++){
+        const ix = rowStartX + i*ingotW;
+        ctx.fillStyle = '#C9CDD0';
+        ctx.fillRect(ix + 1, rowY, ingotW - 2, ingotH - 2);
+        ctx.strokeStyle = '#8A8F94';
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(ix + 1, rowY, ingotW - 2, ingotH - 2);
+        // sheen line
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.beginPath();
+        ctx.moveTo(ix + 3, rowY + 2);
+        ctx.lineTo(ix + ingotW - 5, rowY + 2);
+        ctx.stroke();
+      }
+    }
+  }
+
+  function drawFlareStack(){
+    // fixed screen position — this landmark never scrolls, unlike the parallax props
+    const x = W * 0.76;
+    const baseY = GROUND_Y - 6;
+    const topY = 58;
+
+    // stack pipe, hazy with distance
+    ctx.strokeStyle = 'rgba(66,70,74,0.55)';
+    ctx.lineWidth = 7;
+    sketchLine(x, baseY, x, topY);
+
+    // support struts
+    ctx.strokeStyle = 'rgba(66,70,74,0.4)';
+    ctx.lineWidth = 3;
+    sketchLine(x-15, baseY-55, x, baseY-68);
+    sketchLine(x+15, baseY-125, x, baseY-138);
+
+    const flick = Math.sin(bgClock()*7)*5 + Math.sin(bgClock()*13)*2;
+    const fx = x, fy = topY;
+
+    // glow halo lighting the surrounding sky
+    const halo = ctx.createRadialGradient(fx, fy-8, 4, fx, fy-8, 75);
+    halo.addColorStop(0, 'rgba(255,150,40,0.4)');
+    halo.addColorStop(1, 'rgba(255,150,40,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(fx, fy-8, 75, 0, Math.PI*2);
+    ctx.fill();
+
+    // large layered flame
+    ctx.fillStyle = 'rgba(214,72,47,0.92)';
+    ctx.beginPath();
+    ctx.moveTo(fx-17, fy);
+    ctx.quadraticCurveTo(fx-11, fy-32+flick, fx-2, fy-9);
+    ctx.quadraticCurveTo(fx+5, fy-48-flick, fx+17, fy-7);
+    ctx.quadraticCurveTo(fx+9, fy-17, fx, fy);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(244,217,59,0.92)';
+    ctx.beginPath();
+    ctx.arc(fx-1, fy-15+flick*0.5, 10, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(255,244,214,0.85)';
+    ctx.beginPath();
+    ctx.arc(fx-1, fy-11+flick*0.3, 4, 0, Math.PI*2);
+    ctx.fill();
+
+    // rising smoke plumes
+    ctx.fillStyle = 'rgba(90,90,88,0.18)';
+    for(let s=0; s<4; s++){
+      const sp = (elapsed*15 + s*20) % 90;
+      ctx.beginPath();
+      ctx.arc(fx + Math.sin(sp*0.15+s)*6, fy-32-sp, 7+sp*0.12, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function drawMetBox(){
+    // fixed screen position, left side of the basement — a static landmark, doesn't scroll.
+    // whichever light is active (metLightRed) glows bright; the other sits dim.
+    const x = 24, y = GROUND_Y - 78, w = 54, h = 62;
+
+    ctx.fillStyle = '#F3EEE1';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(x+1.25, y+1.25, w-2.5, h-2.5);
+
+    ctx.fillStyle = '#181816';
+    ctx.font = 'bold 17px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('MET', x+w/2, y+h/2+14);
+
+    const lights = [
+      { cx: x+16, on: metLightRed, color: '#FF3B2E', dim: '#6E2A20', glow: 'rgba(255,59,46,0.75)' },
+      { cx: x+w-16, on: !metLightRed, color: '#4CD964', dim: '#2A4A30', glow: 'rgba(76,217,100,0.75)' }
+    ];
+    for(const l of lights){
+      if(l.on){
+        const g = ctx.createRadialGradient(l.cx, y+14, 1, l.cx, y+14, 22);
+        g.addColorStop(0, l.glow);
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(l.cx, y+14, 22, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.fillStyle = l.on ? l.color : l.dim;
+      ctx.beginPath(); ctx.arc(l.cx, y+14, 6, 0, Math.PI*2); ctx.fill();
+      if(l.on){
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.beginPath(); ctx.arc(l.cx, y+14, 2.5, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.strokeStyle = '#181816';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  }
+
+  function drawBasementBackground(){
+    // dim, enclosed underground gradient — deliberately dark, no sky/mountains/day-night
+    const bg = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+    bg.addColorStop(0, '#14171C');
+    bg.addColorStop(1, '#1F242B');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, GROUND_Y+2);
+
+    // solid ceiling band — the underside of the main floor above, lowered so the space
+    // feels properly enclosed and the potshells hanging from it read as close overhead
+    const ceilingY = 44;
+    ctx.fillStyle = '#20242A';
+    ctx.fillRect(0, 0, W, ceilingY);
+    ctx.strokeStyle = '#14171C';
+    ctx.lineWidth = 3;
+    sketchLine(0, ceilingY, W, ceilingY);
+    const rivetOffset = (distance*0.6) % 40;
+    ctx.fillStyle = '#14171C';
+    for(let x = -rivetOffset; x < W+40; x += 40){
+      ctx.beginPath(); ctx.arc(x, ceilingY-8, 2.5, 0, Math.PI*2); ctx.fill();
+    }
+
+    drawPotshellsBackground();
+
+    // concrete support pillars holding up the potshell floor above
+    const offset = (distance*0.6) % 160;
+    ctx.fillStyle = '#2B2F35';
+    for(let x = -offset; x < W+160; x += 160){
+      ctx.fillRect(x, ceilingY, 26, GROUND_Y-ceilingY+2);
+      ctx.strokeStyle = '#14171C';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, ceilingY, 26, GROUND_Y-ceilingY+2);
+    }
+
+    // dim hanging light fixtures
+    for(let x = -offset+80; x < W+160; x += 160){
+      ctx.strokeStyle = '#3A3D40';
+      ctx.lineWidth = 2;
+      sketchLine(x, ceilingY, x, ceilingY+14);
+      ctx.fillStyle = 'rgba(244,217,59,0.7)';
+      ctx.beginPath(); ctx.arc(x, ceilingY+18, 8, 0, Math.PI*2); ctx.fill();
+      const glow = ctx.createRadialGradient(x, ceilingY+18, 2, x, ceilingY+18, 55);
+      glow.addColorStop(0, 'rgba(244,217,59,0.22)');
+      glow.addColorStop(1, 'rgba(244,217,59,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(x-55, ceilingY-12, 110, 85);
+    }
+
+    // floor
+    ctx.fillStyle = '#33383E';
+    ctx.fillRect(0, GROUND_Y, W, H-GROUND_Y);
+    ctx.strokeStyle = '#20242A';
+    ctx.lineWidth = 2;
+    sketchLine(0, GROUND_Y+1, W, GROUND_Y+1);
+
+    drawMetBox();
+    if(staircase) drawStaircase(staircase);
+  }
+
+  function drawStaircase(ob){
+    // safety-yellow staircase leading back up to the surface
+    const steps = 6;
+    const stepH = ob.h/steps, stepW = ob.w/steps;
+    for(let i=0; i<steps; i++){
+      const sx = ob.x + i*stepW;
+      const sy = ob.y + ob.h - (i+1)*stepH;
+      ctx.fillStyle = '#F4D93B';
+      ctx.fillRect(sx, sy, ob.w - i*stepW, stepH);
+      ctx.strokeStyle = '#181816';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(sx, sy, ob.w - i*stepW, stepH);
+    }
+    // handrail
+    ctx.strokeStyle = '#8C8C86';
+    ctx.lineWidth = 3;
+    sketchLine(ob.x+ob.w, ob.y, ob.x+ob.w, ob.y+ob.h-4);
+    // hazard stripe along the top edge
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 2;
+    sketchLine(ob.x, ob.y, ob.x+ob.w, ob.y);
+  }
+
+  function drawBackground(){
+    if(inBasement){
+      drawBasementBackground();
+      return;
+    }
+
+    const { a: s0, b: s1, t } = getSeasonBlend();
+    const cycleT = getCycleT();
+    const daylight = getDaylight(cycleT);
+    const zoneSkyTopRgb = mixRgb(hexToRgb(s0.skyTop), hexToRgb(s1.skyTop), t);
+    const zoneSkyBottomRgb = mixRgb(hexToRgb(s0.skyBottom), hexToRgb(s1.skyBottom), t);
+    // real blue sky by day (with just a light touch of zone tint for variety),
+    // blending to night — the zone colors alone were pale industrial tones and
+    // never read as a proper outdoor sky on their own
+    const dayTopRgb = mixRgb(hexToRgb(DAY_SKY_TOP), zoneSkyTopRgb, 0.1);
+    const dayBottomRgb = mixRgb(hexToRgb(DAY_SKY_BOTTOM), zoneSkyBottomRgb, 0.1);
+    const skyTop = rgbToStr(mixRgb(dayTopRgb, hexToRgb(NIGHT_SKY_TOP), 1-daylight));
+    const skyBottom = rgbToStr(mixRgb(dayBottomRgb, hexToRgb(NIGHT_SKY_BOTTOM), 1-daylight));
+    const groundColor = lerpColor(s0.ground, s1.ground, t);
+    const groundDeep = lerpColor(s0.groundDeep, s1.groundDeep, t);
+    const gridColor = lerpColor(s0.grid, s1.grid, t);
+    const activeZone = t < 0.5 ? s0 : s1;
+
+    // sky gradient, now cycling between day and night
+    const wall = ctx.createLinearGradient(0,0,0,GROUND_Y);
+    wall.addColorStop(0, skyTop);
+    wall.addColorStop(1, skyBottom);
+    ctx.fillStyle = wall;
+    ctx.fillRect(0,0,W,GROUND_Y+2);
+
+    drawStars(daylight);
+    drawCelestialBody(daylight, cycleT);
+    drawMountainsAndFactories(daylight);
+    drawGreenHills(daylight);
+    drawClouds(daylight);
+
+    // depth scrim — subtly recedes the busy background right where obstacles need to
+    // read clearly, without dimming the sky itself. This is the main fix for objects
+    // blending into the mountains/hills/factories behind them.
+    if(!cachedScrimGradient){
+      cachedScrimGradient = ctx.createLinearGradient(0, GROUND_Y*0.5, 0, GROUND_Y+2);
+      cachedScrimGradient.addColorStop(0, 'rgba(8,9,13,0)');
+      cachedScrimGradient.addColorStop(1, 'rgba(8,9,13,0.34)');
+    }
+    ctx.fillStyle = cachedScrimGradient;
+    ctx.fillRect(0, GROUND_Y*0.5, W, GROUND_Y*0.5+2);
+
+    // distant stationary flare stack — fixed in place, doesn't scroll with the shop
+    drawFlareStack();
+
+    // overhead power-and-free rail (structural, always present)
+    const railY = 18;
+    ctx.strokeStyle = '#2B2B28';
+    ctx.lineWidth = 5;
+    sketchLine(0, railY, W, railY);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#E8B93B';
+    sketchLine(0, railY+7, W, railY+7);
+    // hanger brackets along the rail
+    const bracketOffset = (distance*0.9) % 70;
+    ctx.strokeStyle = '#55534C';
+    ctx.lineWidth = 3;
+    for(let x = -bracketOffset; x < W; x += 70){
+      sketchLine(x, railY+7, x, railY+16);
+    }
+
+    // parallax support pillars and machinery — the shop is falling apart
+    const pillarSpacing = 220;
+    const pillarOffset = (distance*0.35) % pillarSpacing;
+    const propPattern = ['pillar', 'machine', 'reduction-cell', 'guardrail', 'pillar-broken', 'alumina-silo', 'forklift-fire', 'guardrail', 'ingot-stack', 'reduction-cell'];
+    for(let x = -pillarOffset, i = Math.floor(distance*0.35/pillarSpacing); x < W + 40; x += pillarSpacing, i++){
+      const kind = propPattern[((i % propPattern.length) + propPattern.length) % propPattern.length];
+      if(kind === 'machine') drawMachine(x, GROUND_Y - 4, activeZone, i);
+      else if(kind === 'guardrail') drawGuardRail(x, GROUND_Y - 4, i);
+      else if(kind === 'forklift-fire') drawForkliftFire(x, GROUND_Y - 4, i);
+      else if(kind === 'reduction-cell') drawReductionCell(x, GROUND_Y - 4, activeZone, i);
+      else if(kind === 'alumina-silo') drawAluminaSilo(x, GROUND_Y - 4, activeZone, i);
+      else if(kind === 'ingot-stack') drawIngotStack(x, GROUND_Y - 4, activeZone, i);
+      else if(kind === 'pillar-broken') drawPillar(x, GROUND_Y - 4, activeZone, i, true);
+      else drawPillar(x, GROUND_Y - 4, activeZone, i, false);
+    }
+
+    if(cafeteria) drawCafeteriaStall(cafeteria);
+
+    // floor fill
+    ctx.fillStyle = groundColor;
+    ctx.fillRect(0, GROUND_Y+2, W, H-GROUND_Y-2);
+    ctx.fillStyle = groundDeep;
+    ctx.fillRect(0, GROUND_Y+2, W, 6);
+
+    // floor edge line
+    ctx.strokeStyle = '#2B2B28';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y+2);
+    ctx.lineTo(W, GROUND_Y+2);
+    ctx.stroke();
+
+    // floor texture: subtle rivets only
+    const tickOffset = (distance) % 30;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(20,20,18,0.4)';
+    for(let x = -tickOffset; x < W; x += 30){
+      ctx.beginPath();
+      ctx.arc(x, GROUND_Y+9, 1.6, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    if(hole) drawHole(hole);
+    if(crane) drawCrane(crane);
+    if(forklift) drawForklift(forklift);
+    if(safetyGuy) drawSafetyGuy(safetyGuy);
+    if(electricalBox) drawElectricalBox(electricalBox);
+    drawEventProps();
+  }
+
+  function drawHole(h){
+    if(h.covered){
+      drawCoveredHoleFloor(h);
+      return;
+    }
+
+    // dark pit filling the gap, from the floor line down to the bottom of the canvas
+    ctx.fillStyle = '#0E0E0D';
+    ctx.fillRect(h.x, GROUND_Y - 2, h.w, H - GROUND_Y + 2);
+
+    // jagged broken lip on both edges of the gap
+    ctx.fillStyle = '#2B2B28';
+    const jag = (baseX, dir) => {
+      ctx.beginPath();
+      ctx.moveTo(baseX, GROUND_Y + 2);
+      for(let i=0; i<=4; i++){
+        const yy = GROUND_Y + 2 - (i%2===0 ? 0 : 7);
+        ctx.lineTo(baseX + dir*i*4, yy);
+      }
+      ctx.lineTo(baseX + dir*16, GROUND_Y + 14);
+      ctx.lineTo(baseX, GROUND_Y + 14);
+      ctx.closePath();
+      ctx.fill();
+    };
+    jag(h.x, -1);
+    jag(h.x + h.w, 1);
+
+    // faint depth gradient so it doesn't read as a flat black rectangle
+    const depth = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+    depth.addColorStop(0, 'rgba(0,0,0,0.1)');
+    depth.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = depth;
+    ctx.fillRect(h.x, GROUND_Y - 2, h.w, H - GROUND_Y + 2);
+  }
+
+  function drawCoveredHoleFloor(h){
+    // two closed floor plates hinged at the outer lips — deliberately identical whether the
+    // lockout was verified or not, since the whole point is you can't tell just by looking
+    const midX = h.x + h.w/2;
+    ctx.fillStyle = '#6E747A';
+    ctx.fillRect(h.x, GROUND_Y-6, h.w/2-1, 10);
+    ctx.fillRect(h.x+h.w/2+1, GROUND_Y-6, h.w/2-1, 10);
+    ctx.strokeStyle = '#3A3D40';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(h.x, GROUND_Y-6, h.w/2-1, 10);
+    ctx.strokeRect(h.x+h.w/2+1, GROUND_Y-6, h.w/2-1, 10);
+
+    ctx.strokeStyle = '#F4D93B';
+    ctx.lineWidth = 2;
+    sketchLine(h.x+2, GROUND_Y-6, h.x+h.w/2-3, GROUND_Y-6);
+    sketchLine(h.x+h.w/2+3, GROUND_Y-6, h.x+h.w-2, GROUND_Y-6);
+
+    ctx.strokeStyle = '#202325';
+    ctx.lineWidth = 2;
+    sketchLine(midX, GROUND_Y-6, midX, GROUND_Y+4);
+  }
+
+  function drawCrane(c){
+    // overhead rail the rig hangs from
+    ctx.strokeStyle = '#8A8F94';
+    ctx.lineWidth = 6;
+    sketchLine(c.x, CRANE_RAIL_Y, c.x + c.w, CRANE_RAIL_Y);
+
+    // short support post down to the pivot
+    ctx.lineWidth = 5;
+    sketchLine(c.pivotX, CRANE_RAIL_Y, c.pivotX, CRANE_RAIL_Y - 14);
+
+    // chain — purely visual, carries no collision of its own
+    ctx.strokeStyle = '#5B5F63';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([4,3]);
+    ctx.beginPath();
+    ctx.moveTo(c.pivotX, c.pivotY);
+    ctx.lineTo(c.ballX, c.ballY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // the wrecking ball — the only part of this rig that can actually hit the player
+    const r = CRANE_BALL_R;
+    const grad = ctx.createRadialGradient(c.ballX-r*0.35, c.ballY-r*0.35, r*0.2, c.ballX, c.ballY, r);
+    grad.addColorStop(0, '#8A8F94');
+    grad.addColorStop(0.6, '#4B4F53');
+    grad.addColorStop(1, '#201F1D');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(c.ballX, c.ballY, r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // rivets
+    ctx.fillStyle = '#201F1D';
+    for(let i=0; i<5; i++){
+      const a = (i/5)*Math.PI*2 + elapsed*0.5;
+      ctx.beginPath();
+      ctx.arc(c.ballX + Math.cos(a)*r*0.6, c.ballY + Math.sin(a)*r*0.6, 2, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // hazard stripe band
+    ctx.strokeStyle = '#F4D93B';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(c.ballX, c.ballY, r-4, -0.5, 0.5);
+    ctx.stroke();
+  }
+
+  function drawWheel(cx, cy, r){
+    const spin = (elapsed*7) % (Math.PI*2);
+    ctx.fillStyle = '#1B1B1B';
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#8A8F94';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(spin)*r*0.75, cy+Math.sin(spin)*r*0.75);
+    ctx.lineTo(cx-Math.cos(spin)*r*0.75, cy-Math.sin(spin)*r*0.75);
+    ctx.stroke();
+  }
+
+  function drawSafetyGuyFigure(c, x, y, scale){
+    c.save();
+    c.translate(x, y);
+    c.scale(scale, scale);
+    c.strokeStyle = '#2B2B28';
+    c.lineWidth = 3;
+    c.lineCap = 'round';
+    c.beginPath(); c.moveTo(0,-40); c.lineTo(0,-14); c.stroke(); // torso
+    c.beginPath(); c.moveTo(0,-14); c.lineTo(-10,2); c.stroke(); // leg
+    c.beginPath(); c.moveTo(0,-14); c.lineTo(10,2); c.stroke(); // leg
+    c.beginPath(); c.moveTo(0,-32); c.lineTo(-14,-20); c.stroke(); // free arm
+    c.beginPath(); c.moveTo(0,-32); c.lineTo(18,-46); c.stroke(); // arm holding sign
+
+    c.beginPath(); c.arc(0,-48,9,0,Math.PI*2); c.stroke(); // head
+
+    c.fillStyle = '#F4D93B';
+    c.fillRect(-8,-38,16,22);
+    c.strokeStyle = '#8C8C86';
+    c.lineWidth = 1.5;
+    c.strokeRect(-8,-38,16,22);
+
+    // stop sign
+    const sx=18, sy=-60, r=11;
+    c.fillStyle = '#D6482F';
+    c.beginPath();
+    for(let i=0;i<8;i++){
+      const a = Math.PI/8 + i*Math.PI/4;
+      const px = sx+Math.cos(a)*r, py = sy+Math.sin(a)*r;
+      if(i===0) c.moveTo(px,py); else c.lineTo(px,py);
+    }
+    c.closePath();
+    c.fill();
+    c.strokeStyle = '#181816';
+    c.lineWidth = 2;
+    c.stroke();
+    c.fillStyle = '#FFFFFF';
+    c.font = 'bold 7px sans-serif';
+    c.textAlign = 'center';
+    c.fillText('STOP', sx, sy+2.5);
+    c.strokeStyle = '#8C8C86';
+    c.lineWidth = 2;
+    c.beginPath(); c.moveTo(18,-46); c.lineTo(sx,sy+11); c.stroke();
+    c.restore();
+  }
+
+  function drawSafetyGuy(ob){
+    drawSafetyGuyFigure(ctx, ob.x+ob.w/2, ob.y+ob.h, 1);
+  }
+
+  function drawElectricalBox(ob){
+    const x=ob.x, y=ob.y, w=ob.w, h=ob.h;
+    ctx.fillStyle = '#D9D4C4';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = '#3A3D40';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x+1.5, y+1.5, w-3, h-3);
+
+    ctx.fillStyle = '#F4D93B';
+    ctx.beginPath();
+    ctx.moveTo(x+w/2, y+8);
+    ctx.lineTo(x+w-8, y+h-14);
+    ctx.lineTo(x+8, y+h-14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#181816';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('!', x+w/2, y+h-16);
+
+    ctx.strokeStyle = '#D6482F';
+    ctx.lineWidth = 2;
+    sketchLine(x+3, y+h-4, x+w-3, y+h-4);
+  }
+
+  function drawSafetyGuyPortrait(canvasEl){
+    const c = canvasEl.getContext('2d');
+    c.clearRect(0, 0, canvasEl.width, canvasEl.height);
+    drawSafetyGuyFigure(c, canvasEl.width/2, canvasEl.height-8, canvasEl.width/110);
+  }
+
+  function drawJunkItem(c, type, x, y, rot){
+    c.save();
+    c.translate(x, y);
+    if(type !== 'mug' && rot) c.rotate(rot);
+    if(type === 'mug'){
+      c.fillStyle = '#FFFFFF';
+      c.fillRect(-10,-8,18,16);
+      c.strokeStyle = '#8C8C86';
+      c.lineWidth = 2;
+      c.strokeRect(-10,-8,18,16);
+      c.beginPath(); c.arc(9,0,6,-Math.PI/2,Math.PI/2); c.stroke();
+      c.fillStyle = '#6B4A2A';
+      c.fillRect(-8,-6,14,4);
+    } else if(type === 'pen'){
+      c.fillStyle = '#2255AA';
+      c.fillRect(-14,-2,28,4);
+      c.fillStyle = '#C0C0C0';
+      c.fillRect(12,-2,6,4);
+    } else if(type === 'paperclip'){
+      c.strokeStyle = '#8C8C86';
+      c.lineWidth = 2.5;
+      c.beginPath(); c.ellipse(0,-4,6,10,0,0,Math.PI*2); c.stroke();
+      c.beginPath(); c.ellipse(0,2,4,8,0,0,Math.PI*2); c.stroke();
+    } else if(type === 'stickynote'){
+      c.fillStyle = '#F4D93B';
+      c.fillRect(-10,-10,20,20);
+      c.strokeStyle = '#C7B23A';
+      c.lineWidth = 1;
+      c.strokeRect(-10,-10,20,20);
+    } else if(type === 'stapler'){
+      c.fillStyle = '#5B5F63';
+      c.fillRect(-14,-6,28,12);
+      c.strokeStyle = '#3A3D40';
+      c.lineWidth = 1.5;
+      c.strokeRect(-14,-6,28,12);
+    } else if(type === 'tape'){
+      c.fillStyle = '#D9D4C4';
+      c.beginPath(); c.arc(0,0,12,0,Math.PI*2); c.fill();
+      c.fillStyle = '#7A5C3E';
+      c.beginPath(); c.arc(0,0,5,0,Math.PI*2); c.fill();
+    } else if(type === 'batteries'){
+      c.fillStyle = '#3F8F4A';
+      c.fillRect(-12,-6,24,10);
+      c.fillStyle = '#8C8C86';
+      c.fillRect(-12,-8,24,3);
+    } else if(type === 'screwdriver'){
+      c.fillStyle = '#D6482F';
+      c.fillRect(-6,-16,12,10);
+      c.fillStyle = '#B8BCC0';
+      c.fillRect(-2,-4,4,18);
+    } else if(type === 'rubberband'){
+      c.strokeStyle = '#C0392B';
+      c.lineWidth = 2;
+      for(let i=0;i<4;i++){
+        c.beginPath();
+        c.arc(0,0,6+i*2, 0.4+i*0.2, Math.PI+0.6+i*0.2);
+        c.stroke();
+      }
+    } else if(type === 'keys'){
+      c.strokeStyle = '#B8BCC0';
+      c.lineWidth = 2.5;
+      c.beginPath(); c.arc(-6,0,6,0,Math.PI*2); c.stroke();
+      c.beginPath(); c.moveTo(0,0); c.lineTo(14,0); c.stroke();
+      c.beginPath(); c.moveTo(9,0); c.lineTo(9,5); c.stroke();
+      c.beginPath(); c.moveTo(13,0); c.lineTo(13,5); c.stroke();
+    } else if(type === 'coin'){
+      c.fillStyle = '#D9B24A';
+      c.beginPath(); c.arc(0,0,10,0,Math.PI*2); c.fill();
+      c.strokeStyle = '#9C7A2E';
+      c.lineWidth = 1.5;
+      c.beginPath(); c.arc(0,0,10,0,Math.PI*2); c.stroke();
+      c.beginPath(); c.arc(0,0,6,0,Math.PI*2); c.stroke();
+    } else if(type === 'eraser'){
+      c.fillStyle = '#E88AA6';
+      c.fillRect(-11,-6,22,12);
+      c.strokeStyle = '#B85E7A';
+      c.lineWidth = 1.5;
+      c.strokeRect(-11,-6,22,12);
+      c.strokeStyle = 'rgba(255,255,255,0.5)';
+      c.beginPath(); c.moveTo(-11,0); c.lineTo(11,0); c.stroke();
+    } else if(type === 'lightbulb'){
+      c.strokeStyle = '#8C8C86';
+      c.lineWidth = 1.5;
+      c.fillStyle = 'rgba(244,217,59,0.35)';
+      c.beginPath(); c.arc(0,-2,8,0,Math.PI*2); c.fill(); c.stroke();
+      c.fillStyle = '#B8BCC0';
+      c.fillRect(-4,6,8,5);
+    } else if(type === 'thumbtack'){
+      c.fillStyle = '#D6482F';
+      c.beginPath(); c.arc(0,-3,5,0,Math.PI*2); c.fill();
+      c.strokeStyle = '#8C8C86';
+      c.lineWidth = 1.5;
+      c.beginPath(); c.moveTo(0,1); c.lineTo(0,8); c.stroke();
+    }
+    c.restore();
+  }
+
+  function drawForklift(ob){
+    // the art below was authored at a 96x70 "design" size — scale the whole drawing
+    // uniformly down to the obstacle's actual (smaller) size instead of re-tuning every
+    // offset, so proportions stay exactly right at any size
+    const DESIGN_W = 96, DESIGN_H = 70;
+    const fkScale = ob.h / DESIGN_H;
+    ctx.save();
+    ctx.translate(ob.x, ob.y);
+    ctx.scale(fkScale, fkScale);
+    const x=0, y=0, w=DESIGN_W, h=DESIGN_H;
+
+    // ground shadow, for extra visual weight/clarity
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.ellipse(x+w/2-6, y+h+6, w*0.52, 8, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // exhaust smoke, puffing out the BACK (right side, same side as the trailing forks)
+    for(let i=0;i<3;i++){
+      const puffT = (elapsed*1.2 + i*0.7) % 1.4;
+      const px = x + w + 4 + puffT*22;
+      const py = y - 6 - puffT*16;
+      ctx.fillStyle = `rgba(150,150,150,${0.5 - puffT*0.3})`;
+      ctx.beginPath();
+      ctx.arc(px, py, 4 + puffT*4, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#2A2A2A';
+    ctx.fillRect(x+w-6, y-10, 5, 12);
+
+    // mast rails, at the BACK — forks are tucked/trailing since it's just driving, not lifting
+    ctx.strokeStyle = '#8A8F94';
+    ctx.lineWidth = 5;
+    sketchLine(x+w-14, y-14, x+w-14, y+h-8);
+    sketchLine(x+w-3, y-14, x+w-3, y+h-8);
+    ctx.strokeStyle = '#3A3D40';
+    ctx.lineWidth = 2;
+    sketchLine(x+w-14, y-2, x+w-3, y-2);
+
+    // forks trailing at the back, at ground level
+    ctx.fillStyle = '#8A8F94';
+    ctx.fillRect(x+w-6, y+h-20, 26, 6);
+    ctx.fillRect(x+w-6, y+h-10, 26, 6);
+    ctx.strokeStyle = '#3A3D40';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x+w-6, y+h-20, 26, 6);
+    ctx.strokeRect(x+w-6, y+h-10, 26, 6);
+
+    // body — bright, high-visibility red-orange with a thick dark outline
+    ctx.fillStyle = '#FF3B1F';
+    ctx.fillRect(x+22, y+8, w-44, h-24);
+    ctx.strokeStyle = '#6E1810';
+    ctx.lineWidth = 3.5;
+    ctx.strokeRect(x+22, y+8, w-44, h-24);
+
+    // cab / rollcage at the FRONT (left) — this is the leading edge, driving toward you
+    ctx.strokeStyle = '#2A2A2A';
+    ctx.lineWidth = 4;
+    sketchLine(x+4, y-14, x+4, y+10);
+    sketchLine(x+22, y-14, x+22, y+10);
+    sketchLine(x+4, y-14, x+22, y-14);
+    ctx.fillStyle = '#FF6A3D';
+    ctx.fillRect(x+2, y, 22, h-22);
+    ctx.strokeStyle = '#6E1810';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(x+2, y, 22, h-22);
+
+    // angled front bumper wedge, right at the nose
+    ctx.fillStyle = '#FF6A3D';
+    ctx.beginPath();
+    ctx.moveTo(x+2, y+h-16);
+    ctx.lineTo(x-10, y+h-16);
+    ctx.lineTo(x+2, y+h-2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#6E1810';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // driver silhouette, facing forward (left, the direction of travel) — the clearest
+    // possible cue for which way this is actually driving
+    ctx.fillStyle = '#241C15';
+    ctx.beginPath(); ctx.arc(x+11, y+6, 6, 0, Math.PI*2); ctx.fill(); // head
+    ctx.fillRect(x+6, y+11, 14, 16); // torso
+    ctx.beginPath(); ctx.arc(x+4, y+9, 3, 0, Math.PI*2); ctx.fill(); // nose, facing left
+
+    // big, bright headlights right at the very front — impossible to miss
+    ctx.fillStyle = 'rgba(255,240,120,0.55)';
+    ctx.beginPath(); ctx.arc(x-6, y+h-18, 11, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#FFF3B0';
+    ctx.beginPath(); ctx.arc(x-6, y+h-18, 6, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#7A6A2A';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // hazard stripe across the body — bright yellow, high contrast against the red
+    ctx.strokeStyle = '#FFE24A';
+    ctx.lineWidth = 4;
+    sketchLine(x+26, y+h/2, x+w-8, y+h/2);
+
+    // wheels
+    drawWheel(x+18, y+h+2, 12);
+    drawWheel(x+w-24, y+h+2, 12);
+    ctx.restore();
+  }
+
+  function drawEventProps(){
+    for(const p of eventProps){
+      if(p.kind === 'tape') drawCautionTape(p);
+      else drawDangerSign(p);
+    }
+  }
+
+  function drawCautionTape(p){
+    const postH = 60;
+    const y = GROUND_Y - postH;
+    // posts
+    ctx.strokeStyle = '#4A4D50';
+    ctx.lineWidth = 4;
+    sketchLine(p.x, GROUND_Y, p.x, y);
+    sketchLine(p.x + p.w, GROUND_Y, p.x + p.w, y);
+    // sagging tape strung between posts
+    const sag = 10;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(p.x, y + 6);
+    ctx.quadraticCurveTo(p.x + p.w/2, y + 6 + sag, p.x + p.w, y + 6);
+    ctx.lineTo(p.x + p.w, y + 16);
+    ctx.quadraticCurveTo(p.x + p.w/2, y + 16 + sag, p.x, y + 16);
+    ctx.closePath();
+    ctx.clip();
+    ctx.fillStyle = '#F4D93B';
+    ctx.fillRect(p.x - 4, y, p.w + 8, 24);
+    ctx.fillStyle = '#181816';
+    for(let i = -4; i < p.w + 20; i += 14){
+      ctx.save();
+      ctx.translate(p.x + i, y + 11);
+      ctx.rotate(-0.5);
+      ctx.fillRect(-4, -12, 8, 24);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  function drawDangerSign(p){
+    const postH = 46;
+    const cx = p.x + p.w/2;
+    const topY = GROUND_Y - postH;
+    ctx.strokeStyle = '#4A4D50';
+    ctx.lineWidth = 4;
+    sketchLine(cx, GROUND_Y, cx, topY);
+    // diamond warning sign
+    ctx.save();
+    ctx.translate(cx, topY - 2);
+    const r = 17;
+    ctx.beginPath();
+    ctx.moveTo(0, -r); ctx.lineTo(r, 0); ctx.lineTo(0, r); ctx.lineTo(-r, 0);
+    ctx.closePath();
+    ctx.fillStyle = '#F4D93B';
+    ctx.fill();
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    // exclamation mark
+    ctx.fillStyle = '#181816';
+    ctx.fillRect(-2, -8, 4, 9);
+    ctx.beginPath();
+    ctx.arc(0, 6, 2.4, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawShieldAura(cx, cy){
+    const pulse = 15 + Math.sin(elapsed*6) * 2;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(244,217,59,0.7)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, pulse, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPlayer(){
+    ctx.strokeStyle = '#2B2B28';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+
+    const headCosmetic = getEquippedItem('head');
+    const shirtCosmetic = getEquippedItem('shirt');
+    const x = player.x;
+    const legSwing = Math.sin(player.legPhase) * 16;
+
+    if(player.sliding){
+      const y = GROUND_Y - 14;
+      // horizontal sliding pose
+      sketchLine(x-24, y, x+22, y-6); // body
+      sketchLine(x+22, y-6, x+34, y-2); // head/neck direction
+
+      // hi-vis vest along the torso line — bulges while the Slop buff is active
+      ctx.save();
+      ctx.translate((x-1)+jit()*0.3, (y-3)+jit()*0.3);
+      ctx.rotate(-0.13);
+      ctx.fillStyle = shirtCosmetic.color;
+      if(player.slopTimer > 0){
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 24, 12, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle = '#8C8C86';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-16,-8); ctx.lineTo(-16,8); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(12,-8); ctx.lineTo(12,8); ctx.stroke();
+      } else {
+        ctx.fillRect(-20, -6, 40, 11);
+        ctx.strokeStyle = '#8C8C86';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-14,-6); ctx.lineTo(-14,5); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(10,-6); ctx.lineTo(10,5); ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.strokeStyle = '#2B2B28';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(x+38, y-4, 10, 0, Math.PI*2);
+      ctx.stroke();
+
+      if(player.hasShield) drawShieldAura(x+38, y-8);
+
+      // hard hat (color from the equipped head cosmetic)
+      ctx.fillStyle = headCosmetic.color;
+      ctx.beginPath();
+      ctx.arc(x+38, y-8, 9, Math.PI, 0);
+      ctx.fill();
+      ctx.strokeStyle = headCosmetic.dark;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x+29, y-8); ctx.lineTo(x+47, y-8); ctx.stroke();
+
+      // legs tucked back
+      ctx.strokeStyle = '#2B2B28';
+      ctx.lineWidth = 4;
+      sketchLine(x-24, y, x-38, y+8);
+      sketchLine(x-10, y+2, x-26, y+12);
+      // arm forward
+      sketchLine(x+8, y-4, x+20, y-14);
+
+      if(player.coffeeTimer > 0){
+        const orbitR = 28;
+        for(let i=0; i<3; i++){
+          const angle = elapsed*3.2 + i*(Math.PI*2/3);
+          const ox = x + Math.cos(angle)*orbitR;
+          const oy = y - 10 + Math.sin(angle)*orbitR*0.5;
+          drawOrbitCoffeeCup(ox, oy, elapsed*6 + i*2);
+        }
+      }
+      return;
+    }
+
+    const y = player.y;
+    const headCX = x, headCY = y - 52;
+
+    // torso
+    sketchLine(x, y-41, x, y-16);
+
+    if(player.onGround){
+      // running legs
+      sketchLine(x, y-16, x + legSwing*0.5, y);
+      sketchLine(x, y-16, x - legSwing*0.5, y);
+      // running arms
+      sketchLine(x, y-34, x - legSwing*0.4, y-20);
+      sketchLine(x, y-34, x + legSwing*0.4, y-20);
+    } else {
+      // jump pose: legs tucked, arms up
+      sketchLine(x, y-16, x-10, y-2);
+      sketchLine(x, y-16, x+12, y-6);
+      sketchLine(x, y-34, x-14, y-44);
+      sketchLine(x, y-34, x+14, y-44);
+    }
+
+    // hi-vis vest over the torso — bulges into a big rounded belly while the Slop buff is active
+    ctx.fillStyle = shirtCosmetic.color;
+    if(player.slopTimer > 0){
+      ctx.beginPath();
+      ctx.ellipse(x, y-27, 18, 17, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = '#8C8C86';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x-16, y-33); ctx.lineTo(x+16, y-33); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x-18, y-21); ctx.lineTo(x+18, y-21); ctx.stroke();
+    } else {
+      ctx.fillRect(x-8, y-40, 16, 25);
+      ctx.strokeStyle = '#8C8C86';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x-8, y-32); ctx.lineTo(x+8, y-32); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x-8, y-24); ctx.lineTo(x+8, y-24); ctx.stroke();
+    }
+
+    // head
+    ctx.strokeStyle = '#2B2B28';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(headCX + jit()*0.5, headCY + jit()*0.5, 11, 0, Math.PI*2);
+    ctx.stroke();
+
+    if(player.hasShield) drawShieldAura(headCX, headCY - 3);
+
+    // hard hat (color from the equipped head cosmetic)
+    ctx.fillStyle = headCosmetic.color;
+    ctx.beginPath();
+    ctx.arc(headCX, headCY - 3, 12, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = headCosmetic.dark;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(headCX-13, headCY-3); ctx.lineTo(headCX+13, headCY-3); ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(headCX, headCY-11, 2, 0, Math.PI*2);
+    ctx.fillStyle = headCosmetic.dark;
+    ctx.fill();
+
+    if(player.coffeeTimer > 0){
+      const orbitR = 30;
+      for(let i=0; i<3; i++){
+        const angle = elapsed*3.2 + i*(Math.PI*2/3);
+        const ox = headCX + Math.cos(angle)*orbitR;
+        const oy = (headCY-8) + Math.sin(angle)*orbitR*0.5;
+        drawOrbitCoffeeCup(ox, oy, elapsed*6 + i*2);
+      }
+    }
+  }
+
+  function drawCrucible(ob){
+    // a metal crucible/ladle sitting on the ground, filling the same hitbox as before
+    const cx = ob.x + ob.w/2;
+    const baseY = ob.y + ob.h;
+    const topW = ob.w;
+    const botW = ob.w * 0.62;
+    const bodyTop = ob.y + ob.h * 0.18;
+
+    // small support feet
+    ctx.fillStyle = '#3A3E42';
+    ctx.fillRect(cx - botW/2 + 2, baseY - 3, 5, 5);
+    ctx.fillRect(cx + botW/2 - 7, baseY - 3, 5, 5);
+
+    // tapered vessel body (wide rim, narrower base)
+    ctx.fillStyle = '#4A4F55';
+    ctx.beginPath();
+    ctx.moveTo(cx - topW/2, bodyTop);
+    ctx.lineTo(cx + topW/2, bodyTop);
+    ctx.lineTo(cx + botW/2, baseY - 4);
+    ctx.lineTo(cx - botW/2, baseY - 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // rim lip
+    ctx.fillStyle = '#5B6166';
+    ctx.fillRect(cx - topW/2 - 2, bodyTop - 4, topW + 4, 6);
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(cx - topW/2 - 2, bodyTop - 4, topW + 4, 6);
+
+    // pour spout on one side
+    ctx.fillStyle = '#5B6166';
+    ctx.beginPath();
+    ctx.moveTo(cx + topW/2 - 3, bodyTop - 3);
+    ctx.lineTo(cx + topW/2 + 6, bodyTop - 7);
+    ctx.lineTo(cx + topW/2 + 2, bodyTop + 1);
+    ctx.closePath();
+    ctx.fill();
+
+    // glowing molten metal visible inside the opening
+    const glow = 0.15 * Math.sin(elapsed*4 + ob.x*0.05);
+    ctx.fillStyle = `rgba(232,140,40,${0.85+glow})`;
+    ctx.beginPath();
+    ctx.ellipse(cx, bodyTop, topW/2 - 4, 4, 0, 0, Math.PI*2);
+    ctx.fill();
+    const halo = ctx.createRadialGradient(cx, bodyTop, 2, cx, bodyTop, topW*0.8);
+    halo.addColorStop(0, `rgba(232,140,40,${0.35+glow})`);
+    halo.addColorStop(1, 'rgba(232,140,40,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(cx, bodyTop, topW*0.8, 0, Math.PI*2);
+    ctx.fill();
+
+    // rivet seams down the body
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 1.2;
+    sketchLine(cx - topW*0.22, bodyTop + 4, cx - botW*0.22, baseY - 6);
+    sketchLine(cx + topW*0.22, bodyTop + 4, cx + botW*0.22, baseY - 6);
+  }
+
+  function drawHotSpill(ob){
+    // shallow molten spill ringed with cones, same hitbox footprint as the old median
+    const glow = 0.15 * Math.sin(elapsed*4 + ob.x*0.05);
+
+    // pooled glow beneath the spill
+    const pool = ctx.createRadialGradient(ob.x+ob.w/2, ob.y+ob.h, 2, ob.x+ob.w/2, ob.y+ob.h, ob.w*0.7);
+    pool.addColorStop(0, `rgba(232,140,40,${0.4+glow})`);
+    pool.addColorStop(1, 'rgba(232,140,40,0)');
+    ctx.fillStyle = pool;
+    ctx.beginPath();
+    ctx.ellipse(ob.x+ob.w/2, ob.y+ob.h, ob.w*0.7, ob.h*0.35, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // shallow puddle body filling the hitbox
+    ctx.fillStyle = `rgba(214,72,47,${0.85+glow})`;
+    ctx.fillRect(ob.x, ob.y + ob.h*0.5, ob.w, ob.h*0.5);
+    ctx.fillStyle = `rgba(244,180,60,${0.8+glow})`;
+    ctx.fillRect(ob.x + ob.w*0.15, ob.y + ob.h*0.6, ob.w*0.7, ob.h*0.3);
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(ob.x + 1.5, ob.y + ob.h*0.5, ob.w - 3, ob.h*0.5 - 3);
+
+    // safety cones flanking the spill
+    const coneW = Math.min(10, ob.w*0.18);
+    [ob.x + coneW*0.6, ob.x + ob.w - coneW*0.6].forEach(cx => {
+      ctx.fillStyle = '#E8822F';
+      ctx.beginPath();
+      ctx.moveTo(cx, ob.y - 2);
+      ctx.lineTo(cx - coneW/2, ob.y + ob.h*0.5 - 2);
+      ctx.lineTo(cx + coneW/2, ob.y + ob.h*0.5 - 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#181816';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      ctx.fillStyle = '#F4D93B';
+      ctx.fillRect(cx - coneW*0.35, ob.y + ob.h*0.28, coneW*0.7, coneW*0.22);
+    });
+  }
+
+  function drawSparkBox(ob){
+    // a junction box with an arcing, sparking fault — jump over
+    ctx.fillStyle = '#3A3D40';
+    ctx.fillRect(ob.x, ob.y+ob.h*0.35, ob.w, ob.h*0.65);
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(ob.x+1, ob.y+ob.h*0.35+1, ob.w-2, ob.h*0.65-2);
+
+    // hazard stripe
+    ctx.strokeStyle = '#F4D93B';
+    ctx.lineWidth = 2;
+    sketchLine(ob.x+3, ob.y+ob.h*0.6, ob.x+ob.w-3, ob.y+ob.h*0.6);
+
+    // open panel with exposed wiring
+    ctx.strokeStyle = '#8C8C86';
+    ctx.lineWidth = 1.5;
+    sketchLine(ob.x+ob.w*0.3, ob.y+ob.h*0.4, ob.x+ob.w*0.3, ob.y+ob.h*0.9);
+    sketchLine(ob.x+ob.w*0.6, ob.y+ob.h*0.4, ob.x+ob.w*0.6, ob.y+ob.h*0.9);
+
+    // arcing spark — flickering, reads clearly as "live/dangerous"
+    const flick = Math.sin(elapsed*22 + ob.x*0.3);
+    if(flick > 0.2){
+      const sx = ob.x + ob.w*0.45, sy = ob.y + ob.h*0.15;
+      ctx.strokeStyle = '#CFEFFB';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx+5, sy-8);
+      ctx.lineTo(sx-3, sy-12);
+      ctx.lineTo(sx+6, sy-20);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(207,239,251,0.35)';
+      ctx.beginPath();
+      ctx.arc(sx, sy-10, 12, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function drawLiveWire(ob){
+    // a sagging live cable strung between two posts — slide under
+    const midY = ob.y + ob.h*0.5 + 6;
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 4;
+    sketchLine(ob.x, ob.y, ob.x, ob.y+ob.h);
+    sketchLine(ob.x+ob.w, ob.y, ob.x+ob.w, ob.y+ob.h);
+
+    ctx.strokeStyle = '#3A3D40';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(ob.x, ob.y+ob.h*0.3);
+    ctx.quadraticCurveTo(ob.x+ob.w/2, midY, ob.x+ob.w, ob.y+ob.h*0.3);
+    ctx.stroke();
+
+    // flickering current running along the cable
+    const flick = 0.5 + 0.5*Math.sin(elapsed*16 + ob.x*0.2);
+    ctx.strokeStyle = `rgba(244,217,59,${0.5+flick*0.5})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(ob.x, ob.y+ob.h*0.3);
+    ctx.quadraticCurveTo(ob.x+ob.w/2, midY, ob.x+ob.w, ob.y+ob.h*0.3);
+    ctx.stroke();
+
+    ctx.fillStyle = '#F4D93B';
+    ctx.beginPath(); ctx.arc(ob.x, ob.y+ob.h*0.3, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ob.x+ob.w, ob.y+ob.h*0.3, 4, 0, Math.PI*2); ctx.fill();
+  }
+
+  function drawMoltenDrop(ob){
+    const cx = ob.x + ob.w/2;
+    if(ob.age < MOLTEN_FALL_DURATION){
+      // still falling — a bright glowing glob dropping from the ceiling, with a warning
+      // glow at the source; not dangerous yet (getHazardRect keeps it un-collidable here)
+      const t = ob.age / MOLTEN_FALL_DURATION;
+      const dropY = BASEMENT_CEILING_Y + (ob.y - BASEMENT_CEILING_Y) * t;
+
+      // pulsing flash at the ceiling — the tell that something's about to drop
+      const pulse = 0.5 + 0.5*Math.sin(elapsed*14);
+      ctx.fillStyle = `rgba(255,180,80,${(0.55+pulse*0.3)*(1-t*0.6)})`;
+      ctx.beginPath(); ctx.arc(cx, BASEMENT_CEILING_Y+4, 11+pulse*3, 0, Math.PI*2); ctx.fill();
+
+      // comet-style trailing tail behind the falling glob (only the last stretch, fading out,
+      // rather than one static line the whole height — reads as motion, not a beam)
+      const tailLen = Math.min(70, dropY - BASEMENT_CEILING_Y);
+      const tailGrad = ctx.createLinearGradient(cx, dropY - tailLen, cx, dropY);
+      tailGrad.addColorStop(0, 'rgba(255,180,80,0)');
+      tailGrad.addColorStop(1, 'rgba(255,180,80,0.75)');
+      ctx.strokeStyle = tailGrad;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(cx, dropY - tailLen);
+      ctx.lineTo(cx, dropY);
+      ctx.stroke();
+
+      // a couple of small trailing embers for extra motion cues
+      for(let i=1; i<=2; i++){
+        const ey = dropY - i*16 - 4*Math.sin(elapsed*10+i);
+        if(ey > BASEMENT_CEILING_Y){
+          ctx.fillStyle = `rgba(255,214,120,${0.5/i})`;
+          ctx.beginPath(); ctx.arc(cx + (i%2?3:-3), ey, 2.5, 0, Math.PI*2); ctx.fill();
+        }
+      }
+
+      // the falling glob itself — bright, elongated slightly along the direction of travel
+      const glow = ctx.createRadialGradient(cx, dropY, 2, cx, dropY, 16);
+      glow.addColorStop(0, 'rgba(255,220,140,0.95)');
+      glow.addColorStop(1, 'rgba(232,140,40,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.ellipse(cx, dropY, 14, 16, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#FFEAB0';
+      ctx.beginPath(); ctx.ellipse(cx, dropY, 6, 8, 0, 0, Math.PI*2); ctx.fill();
+    } else {
+      // landed — a glowing molten puddle on the floor, jump over
+      const pulse = 0.15*Math.sin(elapsed*5 + ob.x*0.1);
+      const glow = ctx.createRadialGradient(cx, ob.y+ob.h*0.6, 2, cx, ob.y+ob.h*0.6, ob.w*0.9);
+      glow.addColorStop(0, `rgba(255,180,80,${0.55+pulse})`);
+      glow.addColorStop(1, 'rgba(255,180,80,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.ellipse(cx, ob.y+ob.h*0.6, ob.w*0.9, ob.h*0.7, 0, 0, Math.PI*2); ctx.fill();
+
+      ctx.fillStyle = '#E8822F';
+      ctx.beginPath(); ctx.ellipse(cx, ob.y+ob.h*0.55, ob.w*0.5, ob.h*0.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = `rgba(255,214,120,${0.6+pulse*2})`;
+      ctx.beginPath(); ctx.ellipse(cx, ob.y+ob.h*0.5, ob.w*0.28, ob.h*0.3, 0, 0, Math.PI*2); ctx.fill();
+
+      ctx.strokeStyle = '#F4D93B';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(cx, ob.y+ob.h*0.6, ob.w*0.55, ob.h*0.55, 0, 0, Math.PI*2); ctx.stroke();
+    }
+  }
+
+  function drawScrapBarrel(ob){
+    // a dented scrap drum, continuously rotating as it "rolls" toward the player — rotation
+    // is tied directly to x position so it always looks like genuine rolling motion, never
+    // slipping out of sync with its movement
+    const cx = ob.x + ob.w/2, cy = ob.y + ob.h/2, r = ob.w/2;
+    const rotation = ob.x * 0.045;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+
+    ctx.fillStyle = '#5B5F63';
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#2B2B28';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // barrel bands
+    ctx.strokeStyle = '#3A3D40';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, r*0.62, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, r*0.3, 0, Math.PI*2); ctx.stroke();
+
+    // rust/dent patches so it reads as beat-up scrap, not a clean drum
+    ctx.fillStyle = 'rgba(139,90,43,0.5)';
+    ctx.beginPath(); ctx.arc(r*0.35, -r*0.3, r*0.28, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(20,20,20,0.35)';
+    ctx.beginPath(); ctx.ellipse(-r*0.3, r*0.35, r*0.22, r*0.15, 0.6, 0, Math.PI*2); ctx.fill();
+
+    // a single bright reference mark so the rotation actually reads to the eye
+    ctx.fillStyle = '#F4D93B';
+    ctx.beginPath(); ctx.arc(0, -r*0.62, 3, 0, Math.PI*2); ctx.fill();
+
+    ctx.restore();
+
+    // faint ground shadow, doesn't rotate with the drum
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath(); ctx.ellipse(cx, ob.y+ob.h+2, r*0.9, 4, 0, 0, Math.PI*2); ctx.fill();
+  }
+
+
+  function drawPotshellsBackground(){
+    // large potshells embedded in the ceiling — only the bottom portion is visible, as if
+    // the rest sits in a floor above us; flush against the ceiling, no chains/gap
+    const spacing = 240;
+    const offset = (distance*0.6) % spacing;
+    const w = 150, h = 105;
+    const taper = w*0.14;
+    const y = BASEMENT_CEILING_Y;
+
+    for(let x = -offset; x < W+spacing; x += spacing){
+      ctx.fillStyle = '#7A4A2E';
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x+w, y);
+      ctx.lineTo(x+w-taper, y+h);
+      ctx.lineTo(x+taper, y+h);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#3E2415';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x+taper, y+h);
+      ctx.lineTo(x+w-taper, y+h);
+      ctx.lineTo(x+w, y);
+      ctx.stroke();
+
+      // rusty rivet bands across the shell
+      ctx.strokeStyle = '#5B3A22';
+      ctx.lineWidth = 2;
+      sketchLine(x+taper*0.5, y+h*0.35, x+w-taper*0.5, y+h*0.35);
+      sketchLine(x+taper*0.8, y+h*0.65, x+w-taper*0.8, y+h*0.65);
+      ctx.fillStyle = '#4A2E1C';
+      for(let i=0.15; i<1; i+=0.18){
+        ctx.beginPath(); ctx.arc(x+w*i, y+h*0.35, 2.5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x+w*i, y+h*0.65, 2.5, 0, Math.PI*2); ctx.fill();
+      }
+
+      // warm glow along the bottom lip, like it's still carrying residual heat
+      const glow = 0.15*Math.sin(elapsed*3 + x*0.05);
+      ctx.fillStyle = `rgba(232,140,40,${0.3+glow})`;
+      ctx.fillRect(x+taper, y+h-6, w-taper*2, 4);
+
+      // hazard stripe on the bottom lip
+      ctx.strokeStyle = '#F4D93B';
+      ctx.lineWidth = 2;
+      sketchLine(x+taper+3, y+h-1, x+w-taper-3, y+h-1);
+    }
+  }
+
+  function drawLightningBolt(b){
+    if(b.telegraph > 0){
+      // brief warning flash at the spawn point — not dangerous yet, just a heads-up
+      const pulse = 0.5 + 0.5*Math.sin(elapsed*24);
+      ctx.strokeStyle = `rgba(255,244,214,${0.4+pulse*0.4})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, 10+pulse*4, 0, Math.PI*2);
+      ctx.stroke();
+      return;
+    }
+
+    // a little lightning-bolt doodle, oriented along its current direction of travel
+    const angle = Math.atan2(b.vy, b.vx);
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(angle);
+
+    ctx.strokeStyle = 'rgba(207,239,251,0.55)';
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(-11,-6); ctx.lineTo(2,-2); ctx.lineTo(-3,2); ctx.lineTo(11,6);
+    ctx.stroke();
+
+    const flicker = 0.7 + 0.3*Math.sin(elapsed*30 + b.x*0.1);
+    ctx.strokeStyle = `rgba(255,244,214,${flicker})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-11,-6); ctx.lineTo(2,-2); ctx.lineTo(-3,2); ctx.lineTo(11,6);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawCafeteriaStall(c){
+    const x=c.x, y=c.y, w=c.w, h=c.h;
+    const counterTop = y + h*0.62;
+
+    // support posts
+    ctx.strokeStyle = '#5B5F63';
+    ctx.lineWidth = 5;
+    sketchLine(x+8, y+8, x+8, counterTop);
+    sketchLine(x+w-8, y+8, x+w-8, counterTop);
+
+    // striped awning
+    const stripeW = 14;
+    for(let sx = x; sx < x+w; sx += stripeW){
+      ctx.fillStyle = (Math.floor((sx-x)/stripeW)%2===0) ? '#C0392B' : '#EDE6D6';
+      ctx.beginPath();
+      ctx.moveTo(sx, y+8);
+      ctx.lineTo(sx+stripeW, y+8);
+      ctx.lineTo(sx+stripeW-6, y-10);
+      ctx.lineTo(sx-6, y-10);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 2;
+    sketchLine(x-6, y-10, x+w-6, y-10);
+
+    // sign board
+    ctx.fillStyle = '#2B2B28';
+    ctx.fillRect(x+w*0.14, y-36, w*0.72, 24);
+    ctx.strokeStyle = '#F4D93B';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x+w*0.14, y-36, w*0.72, 24);
+    ctx.fillStyle = '#F4D93B';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('CAFETERIA', x+w/2, y-19);
+    ctx.textAlign = 'left';
+
+    // counter
+    ctx.fillStyle = '#8A8578';
+    ctx.fillRect(x, counterTop, w, h*0.38);
+    ctx.strokeStyle = '#5B5750';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(x, counterTop, w, h*0.38);
+    ctx.fillStyle = '#6E6A5F';
+    ctx.fillRect(x, counterTop, w, 6);
+
+    // worker — simple stick figure in an apron, standing behind the counter
+    const wcx = x + w*0.35;
+    ctx.strokeStyle = '#3A3E42';
+    ctx.lineWidth = 4;
+    sketchLine(wcx, counterTop-2, wcx, y+h*0.28);
+    ctx.fillStyle = '#EDEDEA';
+    ctx.fillRect(wcx-9, y+h*0.30, 18, h*0.24);
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(wcx-9, y+h*0.30, 18, h*0.24);
+    ctx.strokeStyle = '#3A3E42';
+    ctx.lineWidth = 4;
+    sketchLine(wcx, y+h*0.32, wcx-13, y+h*0.42);
+    sketchLine(wcx, y+h*0.32, wcx+13, y+h*0.42);
+    const headY = y+h*0.18;
+    ctx.fillStyle = '#C9A67C';
+    ctx.beginPath(); ctx.arc(wcx, headY, 9, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#181816'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#EDEDEA';
+    ctx.beginPath(); ctx.arc(wcx, headY-2, 10, Math.PI, 0); ctx.fill();
+
+    // pot on the counter
+    ctx.fillStyle = '#5B5F63';
+    ctx.beginPath();
+    ctx.ellipse(x+w*0.68, counterTop-6, 14, 8, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillRect(x+w*0.68-14, counterTop-14, 28, 10);
+    ctx.strokeStyle = '#3A3D40'; ctx.lineWidth = 2;
+    ctx.strokeRect(x+w*0.68-14, counterTop-14, 28, 10);
+
+    // tray stack
+    for(let i=0;i<3;i++){
+      ctx.fillStyle = i%2===0 ? '#D9D4C4' : '#C7C2B2';
+      ctx.fillRect(x+w*0.85-13, counterTop-6-i*5, 26, 4);
+    }
+
+    // small menu board leaning against the post
+    ctx.fillStyle = '#4A3520';
+    ctx.fillRect(x-14, counterTop-30, 3, 40);
+    ctx.fillStyle = '#2B2B28';
+    ctx.fillRect(x-30, counterTop-40, 22, 30);
+    ctx.strokeStyle = '#F4D93B';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x-30, counterTop-40, 22, 30);
+  }
+
+  function drawWorker(ob){
+    const cx = ob.x + ob.w/2;
+    const bottom = ob.y + ob.h;
+    const vestColor = ob.vestColor || '#F4D93B';
+    // legs
+    ctx.strokeStyle = '#3A3E42';
+    ctx.lineWidth = 4;
+    sketchLine(cx-5, bottom-ob.h*0.42, cx-8, bottom);
+    sketchLine(cx+5, bottom-ob.h*0.42, cx+8, bottom);
+    // torso (workwear)
+    ctx.lineWidth = 6;
+    sketchLine(cx, bottom-ob.h*0.42, cx, bottom-ob.h*0.85);
+    // hi-vis vest
+    ctx.fillStyle = vestColor;
+    const vestTop = bottom-ob.h*0.85, vestH = ob.h*0.42;
+    ctx.fillRect(cx-7, vestTop, 14, vestH);
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(cx-7, vestTop, 14, vestH);
+    ctx.strokeStyle = '#8C8C86';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cx-7, vestTop+vestH*0.4); ctx.lineTo(cx+7, vestTop+vestH*0.4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx-7, vestTop+vestH*0.75); ctx.lineTo(cx+7, vestTop+vestH*0.75); ctx.stroke();
+    // arms
+    ctx.strokeStyle = '#3A3E42';
+    ctx.lineWidth = 4;
+    sketchLine(cx, vestTop+3, cx-11, vestTop+vestH*0.6);
+    sketchLine(cx, vestTop+3, cx+11, vestTop+vestH*0.6);
+    // head + hard hat (white, distinct from player's red)
+    const headY = bottom - ob.h*0.9;
+    ctx.strokeStyle = '#2B2B28';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, headY, ob.h*0.09+4, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.fillStyle = '#EDEDEA';
+    ctx.beginPath();
+    ctx.arc(cx, headY-2, ob.h*0.09+5, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = '#B5B5AE';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(cx-ob.h*0.09-5, headY-2); ctx.lineTo(cx+ob.h*0.09+5, headY-2); ctx.stroke();
+
+    if(ob.saysLine){
+      const bw = 120, bh = 42;
+      const bx = cx - bw/2, by = headY - ob.h*0.09 - bh - 14;
+      const r = 8;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.strokeStyle = '#181816';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(bx+r, by);
+      ctx.lineTo(bx+bw-r, by);
+      ctx.quadraticCurveTo(bx+bw, by, bx+bw, by+r);
+      ctx.lineTo(bx+bw, by+bh-r);
+      ctx.quadraticCurveTo(bx+bw, by+bh, bx+bw-r, by+bh);
+      ctx.lineTo(bx+r, by+bh);
+      ctx.quadraticCurveTo(bx, by+bh, bx, by+bh-r);
+      ctx.lineTo(bx, by+r);
+      ctx.quadraticCurveTo(bx, by, bx+r, by);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx-7, by+bh-1);
+      ctx.lineTo(cx+3, by+bh-1);
+      ctx.lineTo(cx-3, by+bh+10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#111111';
+      ctx.font = 'bold 8.5px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Developers spent hours', cx, by+14);
+      ctx.fillText('making safety equipment…', cx, by+25);
+      ctx.fillText('use it', cx, by+36);
+    }
+  }
+
+  function drawAnode(ob){
+    const railY = 25;
+    const cx = ob.x + ob.w/2;
+    const stemH = HANGING_ANODE_STEM_H;
+    const stemTop = ob.y - stemH;
+
+    // trolley/hook riding the power-and-free rail
+    ctx.strokeStyle = '#5B6166';
+    ctx.lineWidth = 4;
+    sketchLine(cx-9, railY, cx+9, railY);
+    ctx.fillStyle = '#8A8F94';
+    ctx.beginPath(); ctx.arc(cx, railY, 4, 0, Math.PI*2); ctx.fill();
+
+    // chain, from the rail down to the top of the stem
+    ctx.strokeStyle = '#8A8F94';
+    ctx.lineWidth = 3;
+    const chainLen = stemTop - railY;
+    const linkCount = Math.max(2, Math.round(chainLen/10));
+    for(let i=0;i<linkCount;i++){
+      const ly = railY + 5 + i*((chainLen-8)/linkCount);
+      ctx.beginPath();
+      ctx.ellipse(cx, ly, 3, 5, 0, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    // short rigid stem, directly above the block — black outline first so it's
+    // unmistakably a hazard with real collision, not just background decoration
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 9;
+    sketchLine(cx, stemTop, cx, ob.y);
+    ctx.strokeStyle = '#6E7378';
+    ctx.lineWidth = 6;
+    sketchLine(cx, stemTop, cx, ob.y);
+
+    // yoke where the stem meets the block
+    ctx.strokeStyle = '#5B6166';
+    ctx.lineWidth = 4;
+    sketchLine(cx-14, ob.y+3, cx+14, ob.y+3);
+
+    // black carbon anode block
+    ctx.fillStyle = '#201F1D';
+    ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 3.5;
+    ctx.strokeRect(ob.x+1, ob.y+1, ob.w-2, ob.h-2);
+
+    // hazard edge stripe on the block's bottom lip
+    ctx.strokeStyle = '#F4D93B';
+    ctx.lineWidth = 3;
+    sketchLine(ob.x+3, ob.y+ob.h-3, ob.x+ob.w-3, ob.y+ob.h-3);
+  }
+
+  function drawDroppedAnode(ob){
+    // same rail-chain-stem structure as the hanging anode, kept long and prominent so this
+    // reads as clearly "the same anode" — only the block at the bottom shows it fell
+    const railY = 25;
+    const cx = ob.x + ob.w/2;
+    const stemH = DROPPED_ANODE_STEM_H;
+    const stemTop = ob.y - stemH;
+
+    ctx.strokeStyle = '#5B6166';
+    ctx.lineWidth = 4;
+    sketchLine(cx-9, railY, cx+9, railY);
+    ctx.fillStyle = '#8A8F94';
+    ctx.beginPath(); ctx.arc(cx, railY, 4, 0, Math.PI*2); ctx.fill();
+
+    // chain, from the rail down to the top of the stem — same style/logic as the hanging anode
+    ctx.strokeStyle = '#8A8F94';
+    ctx.lineWidth = 3;
+    const chainLen = stemTop - railY;
+    const linkCount = Math.max(2, Math.round(chainLen/10));
+    for(let i=0;i<linkCount;i++){
+      const ly = railY + 5 + i*((chainLen-8)/linkCount);
+      ctx.beginPath();
+      ctx.ellipse(cx, ly, 3, 5, 0, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    // long rigid stem, same length as the hanging anode's — black outline first so
+    // it's unmistakably a hazard with real collision, not just background decoration
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 9;
+    sketchLine(cx, stemTop, cx, ob.y);
+    ctx.strokeStyle = '#6E7378';
+    ctx.lineWidth = 6;
+    sketchLine(cx, stemTop, cx, ob.y);
+
+    // yoke where the stem meets the block
+    ctx.strokeStyle = '#5B6166';
+    ctx.lineWidth = 4;
+    sketchLine(cx-14, ob.y+3, cx+14, ob.y+3);
+
+    // the block — mostly intact, same shape/size as the hanging one, just resting on
+    // the ground with a single small chip out of one corner and a crack line
+    ctx.fillStyle = '#201F1D';
+    ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 3.5;
+    ctx.strokeRect(ob.x+1, ob.y+1, ob.w-2, ob.h-2);
+
+    // small corner chip
+    ctx.fillStyle = '#141311';
+    ctx.beginPath();
+    ctx.moveTo(ob.x+ob.w, ob.y);
+    ctx.lineTo(ob.x+ob.w-10, ob.y);
+    ctx.lineTo(ob.x+ob.w, ob.y+8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // thin crack line across the top
+    ctx.strokeStyle = '#0D0C0B';
+    ctx.lineWidth = 1.5;
+    sketchLine(ob.x+ob.w*0.35, ob.y+2, ob.x+ob.w*0.55, ob.y+ob.h*0.4);
+
+    // hazard stripe on the bottom lip, same as the hanging version
+    ctx.strokeStyle = '#F4D93B';
+    ctx.lineWidth = 3;
+    sketchLine(ob.x+3, ob.y+ob.h-3, ob.x+ob.w-3, ob.y+ob.h-3);
+
+    // a single loose chip near the base
+    ctx.fillStyle = '#141311';
+    ctx.beginPath(); ctx.arc(ob.x+ob.w+6, ob.y+ob.h-2, 2.5, 0, Math.PI*2); ctx.fill();
+  }
+
+  function drawObstacles(){
+    for(const ob of obstacles){
+      if(ob.skin === 'worker') drawWorker(ob);
+      else if(ob.skin === 'anode') drawAnode(ob);
+      else if(ob.skin === 'anode-dropped') drawDroppedAnode(ob);
+      else if(ob.skin === 'crucible') drawCrucible(ob);
+      else if(ob.skin === 'sparkbox') drawSparkBox(ob);
+      else if(ob.skin === 'livewire') drawLiveWire(ob);
+      else if(ob.skin === 'moltendrop') drawMoltenDrop(ob);
+      else if(ob.skin === 'scrapbarrel') drawScrapBarrel(ob);
+      else drawHotSpill(ob);
+
+      if(player.highlightTimer > 0) drawHitboxHighlight(ob);
+    }
+  }
+
+  function drawHitboxHighlight(ob){
+    // drawn fully inset within the obstacle's actual collision box so the bright outline
+    // never extends past the true hazard boundary and can't be mistaken for a larger
+    // hitbox than what actually collides (for anodes this includes the space above the
+    // visible chain, up to the unseen power-and-free rail)
+    const hr = getHazardRect(ob);
+    const lw = 4;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,229,255,0.95)';
+    ctx.shadowBlur = 7;
+    ctx.strokeStyle = '#00E5FF';
+    ctx.lineWidth = lw;
+    ctx.strokeRect(hr.x + lw/2, hr.y + lw/2, hr.w - lw, hr.h - lw);
+
+    // the stem is its own tight, narrow hazard — give it its own highlight too, since it's
+    // easy to miss as just a thin line inside (or, for the dropped anode, entirely outside)
+    // the block's highlight box
+    if(ob.skin === 'anode' || ob.skin === 'anode-dropped'){
+      const sr = getAnodeStemRect(ob);
+      ctx.lineWidth = 3;
+      ctx.strokeRect(sr.x + 1.5, sr.y + 1.5, sr.w - 3, sr.h - 3);
+    }
+    ctx.restore();
+  }
+
+  function drawPowerups(){
+    for(const pu of powerups){
+      const bob = Math.sin(pu.bobT*3) * 3;
+      const cx = pu.x + pu.w/2;
+      const cy = pu.y + pu.h/2 + bob;
+      const pulse = 1 + Math.sin(elapsed*5 + pu.bobT) * 0.12;
+      const glowColor = pu.kind === 'highlight' ? '214,55,58' : pu.kind === 'slop' ? '230,126,34' : pu.kind === 'ingot' ? '221,228,232' : pu.kind === 'water' ? '78,168,232' : '244,217,59';
+
+      // ground contact glow pool
+      const pool = ctx.createRadialGradient(cx, GROUND_Y, 1, cx, GROUND_Y, 26);
+      pool.addColorStop(0, `rgba(${glowColor},0.35)`);
+      pool.addColorStop(1, `rgba(${glowColor},0)`);
+      ctx.fillStyle = pool;
+      ctx.beginPath();
+      ctx.ellipse(cx, GROUND_Y, 24, 6, 0, 0, Math.PI*2);
+      ctx.fill();
+
+      // outer glow
+      const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, 34*pulse);
+      glow.addColorStop(0, `rgba(${glowColor},0.6)`);
+      glow.addColorStop(0.5, `rgba(${glowColor},0.25)`);
+      glow.addColorStop(1, `rgba(${glowColor},0)`);
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 34*pulse, 0, Math.PI*2);
+      ctx.fill();
+
+      // pulsing ring
+      ctx.strokeStyle = `rgba(${glowColor},0.8)`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 19*pulse, 0, Math.PI*2);
+      ctx.stroke();
+
+      if(pu.kind === 'highlight') drawBookIcon(cx, cy);
+      else if(pu.kind === 'slop') drawSlopIcon(cx, cy);
+      else if(pu.kind === 'ingot') drawIngotIcon(cx, cy, pu.bobT);
+      else if(pu.kind === 'water') drawWaterBottleIcon(cx, cy);
+      else drawHardHatIcon(cx, cy);
+    }
+  }
+
+  function drawHardHatIcon(cx, cy){
+    ctx.fillStyle = '#D6482F';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 12, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 12, Math.PI, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx-13, cy);
+    ctx.lineTo(cx+13, cy);
+    ctx.stroke();
+    ctx.fillStyle = '#8C2E1B';
+    ctx.beginPath();
+    ctx.arc(cx, cy-8, 2, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  function drawBookIcon(cx, cy){
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-0.12);
+    // back cover peeking out
+    ctx.fillStyle = '#8C2A1E';
+    ctx.fillRect(-11, -13, 22, 26);
+    // front cover
+    ctx.fillStyle = '#D6482F';
+    ctx.fillRect(-13, -12, 22, 24);
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-13, -12, 22, 24);
+    // spine line
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-13,-12); ctx.lineTo(-13,12); ctx.stroke();
+    // page edges
+    ctx.strokeStyle = 'rgba(243,238,225,0.85)';
+    ctx.lineWidth = 1.2;
+    for(let i=-6;i<=8;i+=4){
+      ctx.beginPath(); ctx.moveTo(-9, i); ctx.lineTo(6, i); ctx.stroke();
+    }
+    // bookmark ribbon
+    ctx.fillStyle = '#F4D93B';
+    ctx.beginPath();
+    ctx.moveTo(4,-12);
+    ctx.lineTo(9,-12);
+    ctx.lineTo(9,-2);
+    ctx.lineTo(6.5,-5);
+    ctx.lineTo(4,-2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSlopIcon(cx, cy){
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // plate
+    ctx.fillStyle = '#D9D4C4';
+    ctx.beginPath();
+    ctx.ellipse(0, 6, 15, 6, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#8A8578';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // sandwich half — triangular bread with a filling stripe
+    ctx.fillStyle = '#E8C07D';
+    ctx.beginPath();
+    ctx.moveTo(-11, 3);
+    ctx.lineTo(-2, -9);
+    ctx.lineTo(-2, 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#8A5A2E';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#6FAE4A';
+    ctx.fillRect(-10, 0, 8, 2);
+    ctx.fillStyle = '#C0392B';
+    ctx.fillRect(-10, -3, 8, 2);
+
+    // fries in a small carton
+    ctx.fillStyle = '#D6482F';
+    ctx.beginPath();
+    ctx.moveTo(2, 3);
+    ctx.lineTo(12, 3);
+    ctx.lineTo(10, -6);
+    ctx.lineTo(4, -6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = '#F4D93B';
+    for(let i=0;i<3;i++){
+      ctx.fillRect(4.5+i*2.2, -12, 1.6, 8);
+    }
+    ctx.restore();
+  }
+
+  function drawIngotIcon(cx, cy, bobT){
+    // fake a spinning bar by squashing horizontally with cosine — when scaleX nears 0
+    // the ingot reads as edge-on, same trick as a coin-flip sprite
+    const spin = Math.cos(elapsed*3 + bobT);
+    const scaleX = Math.max(0.15, Math.abs(spin));
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(scaleX, 1);
+
+    const grad = ctx.createLinearGradient(-11, -7, 11, 7);
+    grad.addColorStop(0, spin >= 0 ? '#F4F6F8' : '#9AA3AA');
+    grad.addColorStop(0.5, '#D7DCE1');
+    grad.addColorStop(1, spin >= 0 ? '#9AA3AA' : '#F4F6F8');
+    ctx.fillStyle = grad;
+
+    // classic ingot bar silhouette — wider base, narrower top
+    ctx.beginPath();
+    ctx.moveTo(-11, 7);
+    ctx.lineTo(-7, -7);
+    ctx.lineTo(7, -7);
+    ctx.lineTo(11, 7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#6E747A';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.fillRect(-6, -6, 12, 2);
+    ctx.restore();
+  }
+
+  function drawOrbitCoffeeCup(cx, cy, spin){
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(spin);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(-5, -4, 9, 8);
+    ctx.strokeStyle = '#8C8C86';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-5, -4, 9, 8);
+    ctx.beginPath();
+    ctx.arc(4.5, 0, 3, -Math.PI/2, Math.PI/2);
+    ctx.stroke();
+    ctx.fillStyle = '#6B4A2A';
+    ctx.fillRect(-4, -3, 7, 2);
+    ctx.restore();
+  }
+
+  function drawWaterBottleIcon(cx, cy){
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // cap
+    ctx.fillStyle = '#2E86C1';
+    ctx.fillRect(-4, -13, 8, 4);
+
+    // neck
+    ctx.fillStyle = 'rgba(110,198,232,0.85)';
+    ctx.fillRect(-3, -9, 6, 4);
+
+    // body
+    ctx.beginPath();
+    ctx.moveTo(-8, -5);
+    ctx.lineTo(8, -5);
+    ctx.lineTo(8, 11);
+    ctx.quadraticCurveTo(8, 14, 5, 14);
+    ctx.lineTo(-5, 14);
+    ctx.quadraticCurveTo(-8, 14, -8, 11);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(110,198,232,0.55)';
+    ctx.fill();
+    ctx.strokeStyle = '#2E86C1';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // water fill line
+    ctx.fillStyle = 'rgba(46,134,193,0.75)';
+    ctx.fillRect(-7, 2, 14, 10);
+
+    // label stripe
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(-7, -2, 14, 3);
+    ctx.restore();
+  }
+
+  function drawParticles(){
+    ctx.strokeStyle = 'rgba(85,83,76,0.5)';
+    ctx.lineWidth = 2;
+    for(const p of particles){
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 2, 0, Math.PI*2);
+      ctx.stroke();
+    }
+  }
+
+  function drawFloatTexts(){
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 18px "JetBrains Mono", monospace';
+    for(const f of floatTexts){
+      const a = Math.max(0, 1 - f.t/1.0);
+      const y = f.y - f.t*10; // slight extra rise as it fades, on top of the steady drift
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+      ctx.strokeText(f.text, f.x, y);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, f.x, y);
+      ctx.restore();
+    }
+  }
+
+  function drawVignette(){
+    const ratio = Math.min(1, Math.max(0, (speed/300 - 1) / 1.6));
+    if(ratio <= 0) return;
+    const alpha = ratio * 0.4;
+    if(!cachedVignetteGradient){
+      cachedVignetteGradient = ctx.createRadialGradient(W/2, H/2, H*0.28, W/2, H/2, H*0.75);
+      cachedVignetteGradient.addColorStop(0, 'rgba(0,0,0,0)');
+      cachedVignetteGradient.addColorStop(1, 'rgba(0,0,0,1)');
+    }
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = cachedVignetteGradient;
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+
+  function render(){
+    ctx.save();
+    if(shake > 0){
+      ctx.translate((Math.random()-0.5)*shake*8, (Math.random()-0.5)*shake*8);
+    }
+    drawBackground();
+    if(falling && fallHole) drawHole({ x: fallHole.x, w: fallHole.w, covered: false });
+    drawObstacles();
+    if(inBasement) for(const b of lightningBolts) drawLightningBolt(b);
+    drawPowerups();
+    drawPlayer();
+    drawParticles();
+    drawFloatTexts();
+    ctx.restore();
+    drawVignette();
+  }
+
+  // ---------- main loop ----------
+  function loop(now){
+    const dt = Math.max(0, Math.min((now - lastTime)/1000, 0.033));
+    lastTime = now;
+    idleTime += dt;
+
+    if(state === 'playing'){
+      update(dt);
+      scoreLabel.textContent = 'SCORE ' + Math.floor(distance/10);
+      buffShieldEl.classList.toggle('active', player.hasShield);
+      const highlightOn = player.highlightTimer > 0;
+      buffHighlightEl.classList.toggle('active', highlightOn);
+      if(highlightOn) highlightTimerLabel.textContent = Math.ceil(player.highlightTimer) + 's';
+      const slopOn = player.slopTimer > 0;
+      buffSlopEl.classList.toggle('active', slopOn);
+      if(slopOn) slopTimerLabel.textContent = Math.ceil(player.slopTimer) + 's';
+      const coffeeOn = player.coffeeTimer > 0;
+      buffCoffeeEl.classList.toggle('active', coffeeOn);
+      if(coffeeOn) coffeeTimerLabel.textContent = Math.ceil(player.coffeeTimer) + 's';
+    }
+    render();
+
+    // keep looping continuously in every state (including idle, behind the start screen) —
+    // this keeps the canvas drawing functions warmed up in the browser's JIT, which avoids
+    // the frame-rate stutter that otherwise shows up in the first few seconds of real play
+    requestAnimationFrame(loop);
+  }
+
+  // start the (always-on) loop immediately so drawing is already warm before Start is pressed
+  resetGame();
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
