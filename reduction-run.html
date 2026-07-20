@@ -1310,6 +1310,145 @@
     }catch(e){
       actx = null;
     }
+    startLofiMusic();
+  }
+
+  // ---------- procedural lofi background music (fully original, generated in-browser —
+  // no samples, no copyrighted material, ties into the same mute/audio-context system
+  // as the sound effects) ----------
+  let musicStarted = false;
+  let musicNextNoteTime = 0;
+  let musicBeat = 0;
+  const LOFI_TEMPO = 78; // bpm — classic laid-back lofi pace
+  const LOFI_BEAT_DUR = 60/LOFI_TEMPO;
+  const LOFI_CHORDS = [
+    [220.00, 261.63, 329.63, 392.00], // Am7
+    [293.66, 349.23, 440.00, 523.25], // Dm7
+    [196.00, 246.94, 293.66, 349.23], // G7
+    [261.63, 329.63, 392.00, 493.88]  // Cmaj7
+  ];
+  const LOFI_BASS = [110.00, 146.83, 98.00, 130.81]; // chord roots, an octave down
+
+  function startLofiMusic(){
+    if(musicStarted || !actx) return;
+    musicStarted = true;
+    musicBeat = 0;
+    musicNextNoteTime = actx.currentTime + 0.2;
+    startLofiCrackle();
+    setInterval(lofiSchedulerTick, 100);
+  }
+
+  function lofiSchedulerTick(){
+    if(!actx) return;
+    while(musicNextNoteTime < actx.currentTime + 0.3){
+      scheduleLofiBeat(musicNextNoteTime, musicBeat);
+      musicNextNoteTime += LOFI_BEAT_DUR;
+      musicBeat++;
+    }
+  }
+
+  function scheduleLofiBeat(time, beat){
+    const chordIndex = Math.floor(beat/4) % LOFI_CHORDS.length;
+    const beatInBar = beat % 4;
+
+    if(beatInBar === 0){
+      playLofiChord(LOFI_CHORDS[chordIndex], time, LOFI_BEAT_DUR*4);
+      playLofiBass(LOFI_BASS[chordIndex], time, LOFI_BEAT_DUR*1.8);
+      playLofiKick(time);
+    }
+    if(beatInBar === 2){
+      playLofiBass(LOFI_BASS[chordIndex], time, LOFI_BEAT_DUR*1.8);
+      playLofiKick(time);
+    }
+    // soft hat, slightly behind the beat for a laid-back, swung feel
+    playLofiHat(time + LOFI_BEAT_DUR*0.52);
+  }
+
+  function playLofiChord(freqs, time, dur){
+    if(!actx) return;
+    freqs.forEach(freq => {
+      const osc = actx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = freq * (1 + (Math.random()-0.5)*0.004); // faint detune for warmth
+      const gain = actx.createGain();
+      gain.gain.setValueAtTime(0, time);
+      gain.gain.linearRampToValueAtTime(0.035, time + 0.4);
+      gain.gain.linearRampToValueAtTime(0.02, time + dur*0.6);
+      gain.gain.linearRampToValueAtTime(0, time + dur);
+      const filter = actx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 1200;
+      osc.connect(filter).connect(gain).connect(actx.destination);
+      osc.start(time);
+      osc.stop(time + dur + 0.05);
+    });
+  }
+
+  function playLofiBass(freq, time, dur){
+    if(!actx) return;
+    const osc = actx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const gain = actx.createGain();
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(0.08, time + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+    osc.connect(gain).connect(actx.destination);
+    osc.start(time);
+    osc.stop(time + dur + 0.05);
+  }
+
+  function playLofiKick(time){
+    if(!actx) return;
+    const osc = actx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(110, time);
+    osc.frequency.exponentialRampToValueAtTime(45, time + 0.15);
+    const gain = actx.createGain();
+    gain.gain.setValueAtTime(0.22, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+    osc.connect(gain).connect(actx.destination);
+    osc.start(time);
+    osc.stop(time + 0.25);
+  }
+
+  function playLofiHat(time){
+    if(!actx) return;
+    const bufferSize = Math.floor(actx.sampleRate * 0.05);
+    const buffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0; i<bufferSize; i++) data[i] = Math.random()*2-1;
+    const src = actx.createBufferSource();
+    src.buffer = buffer;
+    const filter = actx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 6000;
+    const gain = actx.createGain();
+    gain.gain.setValueAtTime(0.035, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+    src.connect(filter).connect(gain).connect(actx.destination);
+    src.start(time);
+  }
+
+  function startLofiCrackle(){
+    if(!actx) return;
+    const bufferSize = actx.sampleRate * 2;
+    const buffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0; i<bufferSize; i++){
+      data[i] = (Math.random()*2-1) * (Math.random() < 0.02 ? 1 : 0.15);
+    }
+    const src = actx.createBufferSource();
+    src.buffer = buffer;
+    src.loop = true;
+    const filter = actx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 3000;
+    filter.Q.value = 0.5;
+    const gain = actx.createGain();
+    gain.gain.value = 0.012;
+    src.connect(filter).connect(gain).connect(actx.destination);
+    src.start(0);
   }
 
   function playPowerup(kind){
