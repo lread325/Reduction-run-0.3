@@ -53,7 +53,7 @@
   canvas { display: block; width: 100%; height: 100%; }
 
   /* phone rotated to landscape — go edge to edge */
-  @media (orientation: landscape) and (max-height: 600px) {
+  @media (orientation: landscape) {
     #wrap { padding: 0; }
     #stage {
       width: 100vw;
@@ -1106,6 +1106,7 @@
     head: [
       { id:'hat_red',   name:'Red Hard Hat',   cost:0,  color:'#D6482F', dark:'#8C2E1B' },
       { id:'hat_green', name:'Green Hardhat',  cost:25, color:'#3F8F4A', dark:'#24522A' },
+      { id:'hat_welder', name:'Welder Mask', cost:35, color:'#3A3D40', dark:'#181816' },
       { id:'hat_bronze',   name:'Bronze Hardhat',   cost:0, unlockScore:2000,  color:'#B08D57', dark:'#6B4E2A' },
       { id:'hat_aluminum', name:'Aluminum Hardhat', cost:0, unlockScore:4000,  color:'#C9CFD6', dark:'#8C9199' },
       { id:'hat_gold',     name:'Gold Hardhat',     cost:0, unlockScore:6000,  color:'#D9B23C', dark:'#8C6F1E' },
@@ -1114,19 +1115,25 @@
       { id:'hat_molten',   name:'Molten Hardhat',   cost:0, unlockScore:12000, color:'#FF6A2B', dark:'#B8341A' }
     ],
     shirt: [
-      { id:'vest_yellow', name:'Hi-Vis Vest', cost:0, color:'#F4D93B', dark:'#8C8C86' }
+      { id:'vest_yellow', name:'Hi-Vis Vest', cost:0, color:'#F4D93B', dark:'#8C8C86' },
+      { id:'jacket_hotmetal', name:'Hot Metal Jacket', cost:35, color:'#C9CFD6', dark:'#8C9199' },
+      { id:'jacket_gold', name:'Gold Metal Jacket', cost:40, color:'#D9B23C', dark:'#8C6F1E' }
     ],
-    pants: [],
+    pants: [
+      { id:'pants_none', name:'None', cost:0 },
+      { id:'pants_fire', name:'Fire Pants', cost:30, color:'#D6482F', dark:'#8C2E1B' }
+    ],
     accessories: [
       { id:'acc_none', name:'None', cost:0 },
       { id:'acc_footprints', name:'Molten Footprints', cost:30 },
       { id:'acc_wings', name:'Flaming Wings', cost:50 },
       { id:'acc_oxygen', name:'Oxygen Tank', cost:20 },
-      { id:'acc_extinguisher', name:'Fire Extinguisher', cost:20 }
+      { id:'acc_extinguisher', name:'Fire Extinguisher', cost:20 },
+      { id:'acc_m400', name:'M400 Mask', cost:35 }
     ]
   };
-  let equipped = { head:'hat_red', shirt:'vest_yellow', pants:null, accessories:'acc_none' };
-  let ownedItems = { head:['hat_red'], shirt:['vest_yellow'], pants:[], accessories:['acc_none'] };
+  let equipped = { head:'hat_red', shirt:'vest_yellow', pants:'pants_none', accessories:'acc_none' };
+  let ownedItems = { head:['hat_red'], shirt:['vest_yellow'], pants:['pants_none'], accessories:['acc_none'] };
   const COSMETICS_KEY = 'stickRunnerCosmetics';
 
   async function loadCosmetics(){
@@ -1873,6 +1880,24 @@
     c.fillRect(cx-4, cy-1, 8, 3);
   }
 
+  function drawM400MaskIcon(c, cx, cy){
+    c.fillStyle = '#3A3D40';
+    c.beginPath(); c.arc(cx-6, cy-3, 5, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.arc(cx+6, cy-3, 5, 0, Math.PI*2); c.fill();
+    c.strokeStyle = '#181816';
+    c.lineWidth = 1;
+    c.beginPath(); c.arc(cx-6, cy-3, 5, 0, Math.PI*2); c.stroke();
+    c.beginPath(); c.arc(cx+6, cy-3, 5, 0, Math.PI*2); c.stroke();
+    c.fillStyle = 'rgba(207,239,251,0.55)';
+    c.beginPath(); c.arc(cx-6, cy-3, 2.6, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.arc(cx+6, cy-3, 2.6, 0, Math.PI*2); c.fill();
+    c.fillStyle = '#5B5F63';
+    c.beginPath(); c.arc(cx, cy+7, 4, 0, Math.PI*2); c.fill();
+    c.strokeStyle = '#181816';
+    c.lineWidth = 1;
+    c.beginPath(); c.arc(cx, cy+7, 4, 0, Math.PI*2); c.stroke();
+  }
+
   function drawShopItemIcon(canvas, slot, item){
     const c = canvas.getContext('2d');
     c.clearRect(0, 0, canvas.width, canvas.height);
@@ -1880,6 +1905,27 @@
     const dark = item.dark || '#3A3A38';
 
     if(slot === 'head'){
+      if(item.id === 'hat_welder'){
+        c.fillStyle = '#3A3D40';
+        c.beginPath();
+        c.moveTo(cx-13, cy-9);
+        c.lineTo(cx+13, cy-9);
+        c.lineTo(cx+11, cy+11);
+        c.lineTo(cx-11, cy+11);
+        c.closePath();
+        c.fill();
+        c.strokeStyle = '#181816';
+        c.lineWidth = 2;
+        c.stroke();
+        c.fillStyle = '#0F1216';
+        c.fillRect(cx-8, cy-3, 16, 7);
+        c.strokeStyle = '#8C8C86';
+        c.lineWidth = 1;
+        c.strokeRect(cx-8, cy-3, 16, 7);
+        c.strokeStyle = 'rgba(207,239,251,0.4)';
+        c.beginPath(); c.moveTo(cx-6, cy); c.lineTo(cx-1, cy); c.stroke();
+        return;
+      }
       // hard hat dome, same silhouette as the in-game icon/character
       c.fillStyle = item.color;
       c.beginPath();
@@ -1910,6 +1956,18 @@
       c.closePath();
       c.fill();
     } else if(slot === 'pants'){
+      if(item.id === 'pants_none'){
+        c.strokeStyle = 'rgba(243,238,225,0.4)';
+        c.lineWidth = 2;
+        c.beginPath();
+        c.arc(cx, cy, 13, 0, Math.PI*2);
+        c.stroke();
+        c.beginPath();
+        c.moveTo(cx-8, cy-8); c.lineTo(cx+8, cy+8);
+        c.moveTo(cx+8, cy-8); c.lineTo(cx-8, cy+8);
+        c.stroke();
+        return;
+      }
       // pants silhouette — waistband + two legs
       c.fillStyle = item.color;
       c.beginPath();
@@ -1930,6 +1988,7 @@
       else if(item.id === 'acc_wings') drawWingsIcon(c, cx, cy);
       else if(item.id === 'acc_oxygen') drawOxygenTankIcon(c, cx, cy);
       else if(item.id === 'acc_extinguisher') drawExtinguisherIcon(c, cx, cy);
+      else if(item.id === 'acc_m400') drawM400MaskIcon(c, cx, cy);
       else {
         // "None" — an empty slot outline
         c.strokeStyle = 'rgba(243,238,225,0.4)';
@@ -2499,7 +2558,7 @@
     cafeteria = null;
     lastCafeteriaScore = -1800;
     safetyGuy = null;
-    safetyGuyEligibleThisRun = Math.random() < 0.30; // ~1 in 3 games will feature the Safety Guy at all
+    safetyGuyEligibleThisRun = Math.random() < 0.50; // ~1 in 2 games will feature the Safety Guy at all
     lastSafetyScore = -1500;
     gamePaused = false;
     mgPhase = null;
@@ -4888,6 +4947,34 @@
     // ground trail effect, not something worn on the character
   }
 
+  function drawFaceAccessory(item, cx, cy){
+    if(!item || item.id !== 'acc_m400') return;
+    drawM400Mask(cx, cy);
+  }
+
+  function drawM400Mask(cx, cy){
+    // full-face respirator: two round eye lenses + a filter canister below
+    ctx.fillStyle = '#3A3D40';
+    ctx.beginPath(); ctx.arc(cx-5, cy, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx+5, cy, 4, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx-5, cy, 4, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx+5, cy, 4, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle = 'rgba(207,239,251,0.5)';
+    ctx.beginPath(); ctx.arc(cx-5, cy, 2.2, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx+5, cy, 2.2, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#5B5F63';
+    ctx.beginPath(); ctx.arc(cx, cy+7, 3.5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy+7, 3.5, 0, Math.PI*2); ctx.stroke();
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cx-9, cy-2); ctx.lineTo(cx-13, cy-6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+9, cy-2); ctx.lineTo(cx+13, cy-6); ctx.stroke();
+  }
+
   function drawFlamingWings(cx, cy, sliding){
     ctx.save();
     ctx.translate(cx, cy);
@@ -5045,6 +5132,37 @@
     }
   }
 
+  function drawWelderMask(cx, cy){
+    // dark welding helmet shell — a flat trapezoid face shield, not a dome
+    ctx.fillStyle = '#3A3D40';
+    ctx.beginPath();
+    ctx.moveTo(cx-11, cy-10);
+    ctx.lineTo(cx+11, cy-10);
+    ctx.lineTo(cx+9, cy+9);
+    ctx.lineTo(cx-9, cy+9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // dark tinted viewing window
+    ctx.fillStyle = '#0F1216';
+    ctx.fillRect(cx-7, cy-4, 14, 6);
+    ctx.strokeStyle = '#8C8C86';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx-7, cy-4, 14, 6);
+    // faint glare on the window so it still reads as glass, not a solid block
+    ctx.strokeStyle = 'rgba(207,239,251,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx-5, cy-2); ctx.lineTo(cx-1, cy-2); ctx.stroke();
+
+    // head strap
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx-11, cy-9); ctx.lineTo(cx+11, cy-9); ctx.stroke();
+  }
+
   function drawPlayer(){
     ctx.strokeStyle = '#2B2B28';
     ctx.lineWidth = 4;
@@ -5053,6 +5171,7 @@
     const headCosmetic = getEquippedItem('head');
     const shirtCosmetic = getEquippedItem('shirt');
     const accCosmetic = getEquippedItem('accessories');
+    const pantsCosmetic = getEquippedItem('pants');
     const x = player.x;
     const legSwing = Math.sin(player.legPhase) * 16;
 
@@ -5094,22 +5213,33 @@
 
       if(player.hasShield) drawShieldAura(x+38, y-8);
 
-      // hard hat (color from the equipped head cosmetic)
-      ctx.fillStyle = headCosmetic.color;
-      ctx.beginPath();
-      ctx.arc(x+38, y-8, 9, Math.PI, 0);
-      ctx.fill();
-      ctx.strokeStyle = headCosmetic.dark;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(x+29, y-8); ctx.lineTo(x+47, y-8); ctx.stroke();
-      if(headCosmetic.id === 'hat_molten') drawMoltenHatEffect(x+38, y-8, 9);
-      if(headCosmetic.id === 'hat_diamond') drawDiamondHatEffect(x+38, y-8, 9);
+      // hard hat (color from the equipped head cosmetic) — or a distinct welder mask shape
+      if(headCosmetic.id === 'hat_welder'){
+        drawWelderMask(x+38, y-8);
+      } else {
+        ctx.fillStyle = headCosmetic.color;
+        ctx.beginPath();
+        ctx.arc(x+38, y-8, 9, Math.PI, 0);
+        ctx.fill();
+        ctx.strokeStyle = headCosmetic.dark;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(x+29, y-8); ctx.lineTo(x+47, y-8); ctx.stroke();
+        if(headCosmetic.id === 'hat_molten') drawMoltenHatEffect(x+38, y-8, 9);
+        if(headCosmetic.id === 'hat_diamond') drawDiamondHatEffect(x+38, y-8, 9);
+      }
+      drawFaceAccessory(accCosmetic, x+38, y-4);
 
       // legs tucked back
       ctx.strokeStyle = '#2B2B28';
       ctx.lineWidth = 4;
       sketchLine(x-24, y, x-38, y+8);
       sketchLine(x-10, y+2, x-26, y+12);
+      if(pantsCosmetic.id !== 'pants_none'){
+        ctx.strokeStyle = pantsCosmetic.color;
+        ctx.lineWidth = 4.5;
+        sketchLine(x-24, y, x-31, y+4);
+        sketchLine(x-10, y+2, x-18, y+7);
+      }
       // arm forward
       sketchLine(x+8, y-4, x+20, y-14);
 
@@ -5138,12 +5268,24 @@
       // running arms
       sketchLine(x, y-34, x - legSwing*0.4, y-20);
       sketchLine(x, y-34, x + legSwing*0.4, y-20);
+      if(pantsCosmetic.id !== 'pants_none'){
+        ctx.strokeStyle = pantsCosmetic.color;
+        ctx.lineWidth = 4.5;
+        sketchLine(x, y-16, x + legSwing*0.25, y-8);
+        sketchLine(x, y-16, x - legSwing*0.25, y-8);
+      }
     } else {
       // jump pose: legs tucked, arms up
       sketchLine(x, y-16, x-10, y-2);
       sketchLine(x, y-16, x+12, y-6);
       sketchLine(x, y-34, x-14, y-44);
       sketchLine(x, y-34, x+14, y-44);
+      if(pantsCosmetic.id !== 'pants_none'){
+        ctx.strokeStyle = pantsCosmetic.color;
+        ctx.lineWidth = 4.5;
+        sketchLine(x, y-16, x-5, y-9);
+        sketchLine(x, y-16, x+6, y-11);
+      }
     }
 
     // hi-vis vest over the torso — bulges into a big rounded belly while the Slop buff is active
@@ -5175,20 +5317,25 @@
 
     if(player.hasShield) drawShieldAura(headCX, headCY - 3);
 
-    // hard hat (color from the equipped head cosmetic)
-    ctx.fillStyle = headCosmetic.color;
-    ctx.beginPath();
-    ctx.arc(headCX, headCY - 3, 12, Math.PI, 0);
-    ctx.fill();
-    ctx.strokeStyle = headCosmetic.dark;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(headCX-13, headCY-3); ctx.lineTo(headCX+13, headCY-3); ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(headCX, headCY-11, 2, 0, Math.PI*2);
-    ctx.fillStyle = headCosmetic.dark;
-    ctx.fill();
-    if(headCosmetic.id === 'hat_molten') drawMoltenHatEffect(headCX, headCY-3, 12);
-    if(headCosmetic.id === 'hat_diamond') drawDiamondHatEffect(headCX, headCY-3, 12);
+    // hard hat (color from the equipped head cosmetic) — or a distinct welder mask shape
+    if(headCosmetic.id === 'hat_welder'){
+      drawWelderMask(headCX, headCY - 3);
+    } else {
+      ctx.fillStyle = headCosmetic.color;
+      ctx.beginPath();
+      ctx.arc(headCX, headCY - 3, 12, Math.PI, 0);
+      ctx.fill();
+      ctx.strokeStyle = headCosmetic.dark;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(headCX-13, headCY-3); ctx.lineTo(headCX+13, headCY-3); ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(headCX, headCY-11, 2, 0, Math.PI*2);
+      ctx.fillStyle = headCosmetic.dark;
+      ctx.fill();
+      if(headCosmetic.id === 'hat_molten') drawMoltenHatEffect(headCX, headCY-3, 12);
+      if(headCosmetic.id === 'hat_diamond') drawDiamondHatEffect(headCX, headCY-3, 12);
+    }
+    drawFaceAccessory(accCosmetic, headCX, headCY+2);
 
     if(player.coffeeTimer > 0){
       const orbitR = 30;
