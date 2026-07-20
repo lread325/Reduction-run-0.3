@@ -95,6 +95,29 @@
   }
   #fullscreenBtn:active { background: rgba(43,43,40,0.8); }
 
+  #pauseBtn {
+    position: absolute;
+    top: 8px; right: 48px;
+    z-index: 3;
+    width: 34px; height: 34px;
+    background: rgba(43,43,40,0.55);
+    border: none;
+    border-radius: 4px;
+    color: #F3EEE1;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #pauseBtn:active { background: rgba(43,43,40,0.8); }
+  #pauseBtn.hidden { display: none; }
+
+  #pauseOverlay h1 {
+    color: #F3EEE1;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    margin: 0 0 18px;
+  }
+
   .hud {
     position: absolute; top: 10px; left: 14px; right: 48px;
     display: flex; justify-content: space-between;
@@ -178,6 +201,7 @@
   #buffHighlight .dot { background: #D6482F; }
   #buffSlop .dot { background: #E67E22; }
   #buffCoffee .dot { background: #6B4226; }
+  #buffBoots .dot { background: #C9A227; }
   #highlightTimerLabel { font-variant-numeric: tabular-nums; }
 
   .achToast {
@@ -344,14 +368,23 @@
   }
   .shopGrid {
     min-height: 90px;
+    max-height: 40vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     align-items: flex-start;
+    align-content: flex-start;
     justify-content: center;
     width: 100%;
     max-width: 460px;
+    padding-right: 4px;
   }
+  .shopGrid::-webkit-scrollbar { width: 6px; }
+  .shopGrid::-webkit-scrollbar-thumb { background: rgba(243,238,225,0.4); border-radius: 3px; }
   .shopComingSoon {
     color: #F3EEE1;
     font-size: clamp(12px, 2.4vw, 14px);
@@ -492,17 +525,19 @@
   .lkResult.lkResultBad { color: #FF8A6B; }
   .shopTabs {
     display: flex;
-    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
   }
   .shopTab {
     background: rgba(255,255,255,0.14);
     border: 1px solid rgba(255,255,255,0.3);
     color: #F3EEE1;
-    padding: 7px 20px;
+    padding: 6px 14px;
     border-radius: 16px;
     font-family: inherit;
     font-weight: 600;
-    font-size: clamp(11px, 2.2vw, 13px);
+    font-size: clamp(10px, 2vw, 13px);
     letter-spacing: 0.4px;
     text-transform: uppercase;
     cursor: pointer;
@@ -723,6 +758,7 @@
   <div id="stage">
     <canvas id="game"></canvas>
     <button id="fullscreenBtn" title="Fullscreen">&#x26F6;</button>
+    <button id="pauseBtn" class="hidden" title="Pause">&#9208;</button>
     <div class="hud">
       <span id="scoreLabel">SCORE 0</span>
       <span class="best" id="bestLabel">BEST 0</span>
@@ -733,6 +769,7 @@
       <div class="buffBadge" id="buffHighlight"><span class="dot"></span>TAKE 5 <span id="highlightTimerLabel"></span></div>
       <div class="buffBadge" id="buffSlop"><span class="dot"></span>SLOP <span id="slopTimerLabel"></span></div>
       <div class="buffBadge" id="buffCoffee"><span class="dot"></span>COFFEE <span id="coffeeTimerLabel"></span></div>
+      <div class="buffBadge" id="buffBoots"><span class="dot"></span>RUBBER BOOTS</div>
     </div>
 
     <div class="hydrationMeter" id="hydrationMeter">
@@ -796,6 +833,10 @@
               <div class="buffInfoRow">
                 <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon3" width="18" height="18"></canvas></div>
                 <div class="buffInfoText"><b>Coffee</b><br>+100% speed, invulnerable for 10s. Safety Guy exclusive.</div>
+              </div>
+              <div class="buffInfoRow">
+                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon4" width="18" height="18"></canvas></div>
+                <div class="buffInfoText"><b>Rubber Boots</b><br>Blocks one lightning bolt hit. Basement exclusive.</div>
               </div>
             </div>
           </div>
@@ -869,6 +910,14 @@
       <div class="lkResult hidden" id="lkResult"></div>
     </div>
 
+    <div class="overlay overlay--minigame" id="pauseOverlay">
+      <h1>Paused</h1>
+      <div class="deadButtons">
+        <button class="btn btnSecondary" id="resumeBtn">Resume</button>
+        <button class="btn btnSecondary" id="pauseHomeBtn">Home</button>
+      </div>
+    </div>
+
     <div class="overlay overlay--dead" id="overOverlay">
       <h1 id="deathHeadline">Let's pretend nobody saw that</h1>
       <p class="scoreLine">SCORE <b id="finalScore">0</b> &nbsp;—&nbsp; BEST <b id="finalBest">0</b></p>
@@ -892,6 +941,7 @@
           <button class="shopTab active" data-slot="head">Head</button>
           <button class="shopTab" data-slot="shirt">Shirt</button>
           <button class="shopTab" data-slot="pants">Pants</button>
+          <button class="shopTab" data-slot="accessories">Accessories</button>
         </div>
         <div class="shopGrid" id="shopGrid"></div>
         <div class="deadButtons">
@@ -920,6 +970,7 @@
   const ingotLabel = document.getElementById('ingotLabel');
   const hydrationFill = document.getElementById('hydrationFill');
   const buffShieldEl = document.getElementById('buffShield');
+  const buffBootsEl = document.getElementById('buffBoots');
   const buffHighlightEl = document.getElementById('buffHighlight');
   const buffSlopEl = document.getElementById('buffSlop');
   const slopTimerLabel = document.getElementById('slopTimerLabel');
@@ -982,6 +1033,10 @@
   const lkElecPanel = document.getElementById('lkElecPanel');
   const lkStartPanel = document.getElementById('lkStartPanel');
   const lkResult = document.getElementById('lkResult');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const pauseOverlay = document.getElementById('pauseOverlay');
+  const resumeBtn = document.getElementById('resumeBtn');
+  const pauseHomeBtn = document.getElementById('pauseHomeBtn');
   const zoneJump = document.getElementById('zoneJump');
   const zoneSlide = document.getElementById('zoneSlide');
 
@@ -1050,15 +1105,28 @@
   const SHOP_ITEMS = {
     head: [
       { id:'hat_red',   name:'Red Hard Hat',   cost:0,  color:'#D6482F', dark:'#8C2E1B' },
-      { id:'hat_green', name:'Green Hardhat',  cost:25, color:'#3F8F4A', dark:'#24522A' }
+      { id:'hat_green', name:'Green Hardhat',  cost:25, color:'#3F8F4A', dark:'#24522A' },
+      { id:'hat_bronze',   name:'Bronze Hardhat',   cost:0, unlockScore:2000,  color:'#B08D57', dark:'#6B4E2A' },
+      { id:'hat_aluminum', name:'Aluminum Hardhat', cost:0, unlockScore:4000,  color:'#C9CFD6', dark:'#8C9199' },
+      { id:'hat_gold',     name:'Gold Hardhat',     cost:0, unlockScore:6000,  color:'#D9B23C', dark:'#8C6F1E' },
+      { id:'hat_platinum', name:'Platinum Hardhat', cost:0, unlockScore:8000,  color:'#E8EAED', dark:'#A8ACB2' },
+      { id:'hat_diamond',  name:'Diamond Hardhat',  cost:0, unlockScore:10000, color:'#CFEFFB', dark:'#7FB8C9' },
+      { id:'hat_molten',   name:'Molten Hardhat',   cost:0, unlockScore:12000, color:'#FF6A2B', dark:'#B8341A' }
     ],
     shirt: [
       { id:'vest_yellow', name:'Hi-Vis Vest', cost:0, color:'#F4D93B', dark:'#8C8C86' }
     ],
-    pants: []
+    pants: [],
+    accessories: [
+      { id:'acc_none', name:'None', cost:0 },
+      { id:'acc_footprints', name:'Molten Footprints', cost:30 },
+      { id:'acc_wings', name:'Flaming Wings', cost:50 },
+      { id:'acc_oxygen', name:'Oxygen Tank', cost:20 },
+      { id:'acc_extinguisher', name:'Fire Extinguisher', cost:20 }
+    ]
   };
-  let equipped = { head:'hat_red', shirt:'vest_yellow', pants:null };
-  let ownedItems = { head:['hat_red'], shirt:['vest_yellow'], pants:[] };
+  let equipped = { head:'hat_red', shirt:'vest_yellow', pants:null, accessories:'acc_none' };
+  let ownedItems = { head:['hat_red'], shirt:['vest_yellow'], pants:[], accessories:['acc_none'] };
   const COSMETICS_KEY = 'stickRunnerCosmetics';
 
   async function loadCosmetics(){
@@ -1156,6 +1224,12 @@
     { id:'hole_cleared', name:'Mind the Gap',         desc:'Clear a random-event hole',     check:()=> stats.holesCleared >= 1 },
     { id:'crane_cleared', name:'Low Profile',         desc:'Thread a crane swing without getting clipped', check:()=> stats.cranesCleared >= 1 },
     { id:'ignoring_advice', name:'Ignoring Good Advice', desc:'Spot a worker complaining about safety equipment', check:()=> stats.safetyLinesSeen >= 1 },
+    { id:'bronze_runner',   name:'Bronze Runner',   desc:'Score 2,000 in one run',  check:()=> runBestScore >= 2000,  unlockItem:{ slot:'head', id:'hat_bronze' } },
+    { id:'aluminum_runner', name:'Aluminum Runner', desc:'Score 4,000 in one run',  check:()=> runBestScore >= 4000,  unlockItem:{ slot:'head', id:'hat_aluminum' } },
+    { id:'gold_runner',     name:'Gold Runner',     desc:'Score 6,000 in one run',  check:()=> runBestScore >= 6000,  unlockItem:{ slot:'head', id:'hat_gold' } },
+    { id:'platinum_runner', name:'Platinum Runner', desc:'Score 8,000 in one run',  check:()=> runBestScore >= 8000,  unlockItem:{ slot:'head', id:'hat_platinum' } },
+    { id:'diamond_runner',  name:'Diamond Runner',  desc:'Score 10,000 in one run', check:()=> runBestScore >= 10000, unlockItem:{ slot:'head', id:'hat_diamond' } },
+    { id:'reduction_king',  name:'Reduction King',  desc:'Score 12,000 in one run', check:()=> runBestScore >= 12000, unlockItem:{ slot:'head', id:'hat_molten' } },
   ];
 
   async function loadStats(){
@@ -1179,13 +1253,22 @@
   let achToastQueue = [];
   let achToastShowing = false;
   function checkAchievements(){
+    let grantedItem = false;
     for(const a of ACHIEVEMENTS){
       if(!unlockedAch[a.id] && a.check()){
         unlockedAch[a.id] = true;
         achToastQueue.push(a);
+        if(a.unlockItem){
+          const { slot, id } = a.unlockItem;
+          if(!(ownedItems[slot]||[]).includes(id)){
+            ownedItems[slot] = [...(ownedItems[slot]||[]), id];
+            grantedItem = true;
+          }
+        }
       }
     }
     if(achToastQueue.length) saveAch();
+    if(grantedItem) saveCosmetics();
     processAchToastQueue();
   }
   function processAchToastQueue(){
@@ -1462,6 +1545,7 @@
   }
   function drawBuffInfoIcons3(){
     drawBuffInfoIcon(document.getElementById('buffInfoIcon3'), 'coffee');
+    drawBuffInfoIcon(document.getElementById('buffInfoIcon4'), 'boots');
   }
 
   function drawBuffInfoIcon(canvas, kind){
@@ -1520,8 +1604,134 @@
       c.beginPath(); c.arc(cx+6, cy, 4, -Math.PI/2, Math.PI/2); c.stroke();
       c.fillStyle = '#6B4A2A';
       c.fillRect(cx-5, cy-4, 9, 3);
+    } else if(kind === 'boots'){
+      c.fillStyle = '#F4D93B';
+      c.beginPath();
+      c.moveTo(cx-6, cy-9);
+      c.lineTo(cx+2, cy-9);
+      c.lineTo(cx+2, cy+2);
+      c.lineTo(cx+7, cy+2);
+      c.quadraticCurveTo(cx+9, cy+2, cx+9, cy+5);
+      c.lineTo(cx-6, cy+5);
+      c.closePath();
+      c.fill();
+      c.strokeStyle = '#8A7A1E';
+      c.lineWidth = 1;
+      c.stroke();
+      c.fillStyle = '#3A3D40';
+      c.fillRect(cx-6, cy+4, 15, 2.5);
     }
     c.restore();
+  }
+
+  function drawMoltenShopIconEffect(c, cx, cy, r){
+    // static preview of the in-game effect (this icon only redraws when the shop tab
+    // opens, not every frame, so this is a representative still frame rather than a
+    // live animation) — a soft glow plus a couple of droplets frozen mid-drip
+    const glow = c.createRadialGradient(cx, cy, 1, cx, cy, r*2.1);
+    glow.addColorStop(0, 'rgba(255,140,60,0.4)');
+    glow.addColorStop(1, 'rgba(255,140,60,0)');
+    c.fillStyle = glow;
+    c.beginPath(); c.arc(cx, cy, r*2.1, 0, Math.PI*2); c.fill();
+
+    c.fillStyle = 'rgba(255,150,60,0.85)';
+    c.beginPath(); c.ellipse(cx-r*0.5, cy+r*0.5, 2, 2.6, 0, 0, Math.PI*2); c.fill();
+    c.fillStyle = 'rgba(255,150,60,0.55)';
+    c.beginPath(); c.ellipse(cx+r*0.45, cy+r*1.0, 1.6, 2.1, 0, 0, Math.PI*2); c.fill();
+  }
+
+  function drawDiamondShopIconEffect(c, cx, cy, r){
+    // static preview — a few sparkle points frozen at different points in their twinkle,
+    // same shared sparkle shape used in-game
+    drawSparklePoint(c, cx-r*0.7, cy-r*0.5, 3.4, 0.95);
+    drawSparklePoint(c, cx+r*0.6, cy-r*0.3, 2.8, 0.5);
+    drawSparklePoint(c, cx+r*0.1, cy-r*0.95, 2.4, 0.7);
+  }
+
+  function drawFootprintsIcon(c, cx, cy){
+    const glow = c.createRadialGradient(cx, cy, 1, cx, cy, 16);
+    glow.addColorStop(0, 'rgba(255,150,60,0.35)');
+    glow.addColorStop(1, 'rgba(255,150,60,0)');
+    c.fillStyle = glow;
+    c.beginPath(); c.arc(cx, cy, 16, 0, Math.PI*2); c.fill();
+    c.fillStyle = '#E8822F';
+    c.beginPath(); c.ellipse(cx-6, cy+6, 4, 7, 0.3, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse(cx+6, cy-4, 4, 7, -0.3, 0, Math.PI*2); c.fill();
+  }
+
+  function drawWingsIcon(c, cx, cy){
+    for(const side of [-1, 1]){
+      c.save();
+      c.translate(cx, cy);
+      c.scale(side, 1);
+      c.fillStyle = '#D6482F';
+      c.beginPath();
+      c.moveTo(2, -2);
+      c.lineTo(16, -10);
+      c.lineTo(12, -2);
+      c.lineTo(17, 2);
+      c.lineTo(10, 2);
+      c.lineTo(13, 9);
+      c.lineTo(4, 4);
+      c.closePath();
+      c.fill();
+      c.fillStyle = '#F4D93B';
+      c.beginPath();
+      c.moveTo(4, -1);
+      c.lineTo(12, -6);
+      c.lineTo(10, -1);
+      c.lineTo(12, 3);
+      c.lineTo(6, 2);
+      c.closePath();
+      c.fill();
+      c.restore();
+    }
+  }
+
+  function drawOxygenTankIcon(c, cx, cy){
+    c.fillStyle = '#5B5F63';
+    c.beginPath();
+    c.moveTo(cx-6, cy-13);
+    c.lineTo(cx+6, cy-13);
+    c.lineTo(cx+6, cy+11);
+    c.quadraticCurveTo(cx+6, cy+14, cx+3, cy+14);
+    c.lineTo(cx-3, cy+14);
+    c.quadraticCurveTo(cx-6, cy+14, cx-6, cy+11);
+    c.closePath();
+    c.fill();
+    c.strokeStyle = '#2B2B28';
+    c.lineWidth = 1.5;
+    c.stroke();
+    c.fillStyle = '#3F8F4A';
+    c.fillRect(cx-6, cy-4, 12, 5);
+    c.fillStyle = '#8C8C86';
+    c.fillRect(cx-2, cy-17, 4, 5);
+  }
+
+  function drawExtinguisherIcon(c, cx, cy){
+    c.fillStyle = '#D6482F';
+    c.beginPath();
+    c.moveTo(cx-6, cy-8);
+    c.lineTo(cx+6, cy-8);
+    c.lineTo(cx+6, cy+11);
+    c.quadraticCurveTo(cx+6, cy+14, cx+3, cy+14);
+    c.lineTo(cx-3, cy+14);
+    c.quadraticCurveTo(cx-6, cy+14, cx-6, cy+11);
+    c.closePath();
+    c.fill();
+    c.strokeStyle = '#2B2B28';
+    c.lineWidth = 1.5;
+    c.stroke();
+    c.fillStyle = '#8C8C86';
+    c.fillRect(cx-2, cy-13, 4, 5);
+    c.strokeStyle = '#3A3D40';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(cx-2, cy-11);
+    c.lineTo(cx-11, cy-9);
+    c.stroke();
+    c.fillStyle = '#F4D93B';
+    c.fillRect(cx-4, cy-1, 8, 3);
   }
 
   function drawShopItemIcon(canvas, slot, item){
@@ -1544,6 +1754,8 @@
       c.stroke();
       c.fillStyle = dark;
       c.beginPath(); c.arc(cx, cy-5, 2, 0, Math.PI*2); c.fill();
+      if(item.id === 'hat_molten') drawMoltenShopIconEffect(c, cx, cy+3, 13);
+      if(item.id === 'hat_diamond') drawDiamondShopIconEffect(c, cx, cy+3, 13);
     } else if(slot === 'shirt'){
       // vest silhouette with a notched collar
       c.fillStyle = item.color;
@@ -1558,7 +1770,7 @@
       c.lineTo(cx+6, cy-13);
       c.closePath();
       c.fill();
-    } else {
+    } else if(slot === 'pants'){
       // pants silhouette — waistband + two legs
       c.fillStyle = item.color;
       c.beginPath();
@@ -1574,6 +1786,23 @@
       c.strokeStyle = dark;
       c.lineWidth = 2;
       c.stroke();
+    } else if(slot === 'accessories'){
+      if(item.id === 'acc_footprints') drawFootprintsIcon(c, cx, cy);
+      else if(item.id === 'acc_wings') drawWingsIcon(c, cx, cy);
+      else if(item.id === 'acc_oxygen') drawOxygenTankIcon(c, cx, cy);
+      else if(item.id === 'acc_extinguisher') drawExtinguisherIcon(c, cx, cy);
+      else {
+        // "None" — an empty slot outline
+        c.strokeStyle = 'rgba(243,238,225,0.4)';
+        c.lineWidth = 2;
+        c.beginPath();
+        c.arc(cx, cy, 13, 0, Math.PI*2);
+        c.stroke();
+        c.beginPath();
+        c.moveTo(cx-8, cy-8); c.lineTo(cx+8, cy+8);
+        c.moveTo(cx+8, cy-8); c.lineTo(cx-8, cy+8);
+        c.stroke();
+      }
     }
   }
 
@@ -1618,6 +1847,9 @@
           saveCosmetics();
           renderShopTab();
         });
+      } else if(item.unlockScore){
+        btn.textContent = `Reach ${item.unlockScore.toLocaleString()} pts`;
+        btn.classList.add('locked');
       } else if(item.cost <= totalIngots){
         btn.textContent = `Buy — ${item.cost} ◆`;
         btn.addEventListener('click', () => {
@@ -2008,6 +2240,24 @@
     fullscreenBtn.textContent = isFullscreen() ? '\u2715' : '\u26F6';
   });
 
+  function pauseGame(){
+    if(state !== 'playing' || userPaused) return;
+    userPaused = true;
+    pauseOverlay.classList.add('show');
+  }
+  function resumeGame(){
+    userPaused = false;
+    pauseOverlay.classList.remove('show');
+    lastTime = performance.now(); // avoids a big dt spike from the time spent paused
+  }
+  pauseBtn.addEventListener('click', pauseGame);
+  resumeBtn.addEventListener('click', resumeGame);
+  pauseHomeBtn.addEventListener('click', ()=>{
+    userPaused = false;
+    pauseOverlay.classList.remove('show');
+    goHome();
+  });
+
   // ---------- game state ----------
   let state = 'idle'; // idle | playing | dead
   let idleTime = 0; // ticks every frame regardless of state, unlike elapsed/distance
@@ -2020,6 +2270,8 @@
   let cachedVignetteGradient = null;
   let cachedFactoryHaloGradient = null;
   let floatTexts = [];
+  let moltenFootprints = [];
+  let lastFootprintStep = 0;
   // random events: a guaranteed 5s calm/warning stretch, then a single event (currently: a hole)
   let eventState, eventTimer, lastEventScore, hole, eventProps, firstEventDone, eventType, crane, forklift, cafeteria;
   let lastHardHatScore = 0;
@@ -2055,6 +2307,7 @@
   let basementSpawnTimer = 0;
   let basementNextGap = 1.0;
   let staircase = null;
+  let lastBootsSpawnTime = -999; // basementTime value when boots last spawned, for pacing
 
   // static MET box (basement only) — starts green, randomly alternates to a short red
   // phase; while red, bouncing lightning bolts fire in from the right
@@ -2076,11 +2329,14 @@
       shieldFlash: 0,
       highlightTimer: 0,
       slopTimer: 0,
-      coffeeTimer: 0
+      coffeeTimer: 0,
+      bootsCharge: false
     };
     obstacles = [];
     particles = [];
     floatTexts = [];
+    moltenFootprints = [];
+    lastFootprintStep = 0;
     powerups = [];
     runIngots = 0;
     distance = 0;
@@ -2104,7 +2360,7 @@
     cafeteria = null;
     lastCafeteriaScore = -1800;
     safetyGuy = null;
-    safetyGuyEligibleThisRun = Math.random() < 0.10; // ~1 in 10 games will feature the Safety Guy at all
+    safetyGuyEligibleThisRun = Math.random() < 0.30; // ~1 in 3 games will feature the Safety Guy at all
     lastSafetyScore = -1500;
     gamePaused = false;
     mgPhase = null;
@@ -2143,11 +2399,15 @@
     lockoutOverlay.classList.remove('show');
     newBestNote.classList.add('hidden');
     buffShieldEl.classList.remove('active');
+    buffBootsEl.classList.remove('active');
     buffHighlightEl.classList.remove('active');
     buffSlopEl.classList.remove('active');
     buffCoffeeEl.classList.remove('active');
     updateHydrationMeter();
     lastTime = performance.now();
+    userPaused = false;
+    pauseOverlay.classList.remove('show');
+    pauseBtn.classList.remove('hidden');
   }
 
   function goHome(){
@@ -2158,8 +2418,12 @@
     settingsOverlay.classList.remove('show');
     minigameOverlay.classList.remove('show');
     lockoutOverlay.classList.remove('show');
+    pauseOverlay.classList.remove('show');
+    userPaused = false;
+    pauseBtn.classList.add('hidden');
     newBestNote.classList.add('hidden');
     buffShieldEl.classList.remove('active');
+    buffBootsEl.classList.remove('active');
     buffHighlightEl.classList.remove('active');
     buffSlopEl.classList.remove('active');
     buffCoffeeEl.classList.remove('active');
@@ -2456,6 +2720,10 @@
         seed: Math.floor(Math.random()*1000)
       });
     }
+    if(eventType === 'hole'){
+      // foreshadows what's below — a background sign, not a hazard itself
+      eventProps.push({ kind: 'basement', x: W + 60 + 2*150 + 45, w: 90, seed: 0 });
+    }
   }
 
   function spawnHole(lockoutPassed){
@@ -2475,6 +2743,7 @@
   }
 
   let falling = false;
+  let userPaused = false;
   let fallY = 0;
   let fallHole = null; // {x,w} snapshot of the hole's screen position — frozen in place while falling
 
@@ -2514,6 +2783,7 @@
     basementSpawnTimer = 0;
     basementNextGap = 1.2;
     staircase = null;
+    lastBootsSpawnTime = 0;
     player.slopTimer = 0; // no cafeteria in the basement — any active Slop buff ends here
     metLightRed = false;
     metCycleTimer = 0;
@@ -2550,6 +2820,20 @@
       }
     }
     updateLightningBolts(dt);
+
+    // rubber boots — basement-exclusive pickup, blocks one lightning bolt hit
+    if(!player.bootsCharge && basementTime - lastBootsSpawnTime >= 12 &&
+       powerupSpawnSafe(24) && powerupOverlapSafe(W+40, 40) && Math.random() < 0.02){
+      powerups.push({
+        x: W + 40,
+        y: GROUND_Y - 26,
+        w: 24, h: 22,
+        bobT: Math.random()*10,
+        collected: false,
+        kind: 'boots'
+      });
+      lastBootsSpawnTime = basementTime;
+    }
 
     if(!staircase && basementTime < BASEMENT_DURATION){
       basementSpawnTimer += dt;
@@ -2619,6 +2903,13 @@
     for(const b of lightningBolts){
       if(b.telegraph > 0) continue; // can't hit anything while still just a warning
       if(b.x+b.r > px && b.x-b.r < px+pw && b.y+b.r > py && b.y-b.r < py+ph){
+        if(player.bootsCharge){
+          player.bootsCharge = false;
+          player.shieldFlash = 0.5;
+          lightningBolts = lightningBolts.filter(bolt => bolt !== b);
+          floatTexts.push({ x: b.x, y: b.y-14, text: 'Boots absorbed it!', color: '#F4D93B', t: 0 });
+          return;
+        }
         die();
         return;
       }
@@ -2737,6 +3028,8 @@
   }
 
   function update(rawDt){
+    if(userPaused) return;
+
     if(falling){
       updateFalling(rawDt);
       return;
@@ -2806,6 +3099,16 @@
     }
 
     player.legPhase += dt * (player.onGround ? speed*0.02 : 0);
+
+    if(equipped.accessories === 'acc_footprints' && player.onGround && !player.sliding){
+      const footStep = Math.floor(player.legPhase / Math.PI);
+      if(footStep !== lastFootprintStep){
+        lastFootprintStep = footStep;
+        moltenFootprints.push({ x: player.x + (footStep%2===0 ? -6 : 6), y: GROUND_Y, t: 0 });
+      }
+    }
+    for(const f of moltenFootprints){ f.t += dt; f.x -= speed*dt; }
+    moltenFootprints = moltenFootprints.filter(f => f.t < 1.2);
 
     if(inBasement){
       updateBasement(dt);
@@ -2916,6 +3219,11 @@
           updateHydrationMeter();
           floatTexts.push({ x: pu.x, y: pu.y-14, text: '+50% Hydration', color: '#8FD8F0', t: 0 });
           playPowerup('water');
+        } else if(pu.kind === 'boots'){
+          player.bootsCharge = true;
+          player.shieldFlash = 0.5;
+          floatTexts.push({ x: pu.x, y: pu.y-14, text: 'Rubber Boots', color: '#F4D93B', t: 0 });
+          playPowerup('shield');
         }
       }
     }
@@ -3061,6 +3369,7 @@
   function die(){
     if(player.coffeeTimer > 0) return; // coffee buff: fully invulnerable, ignore any death trigger
     state = 'dead';
+    pauseBtn.classList.add('hidden');
     shake = 1;
     playCrash();
     if(DEATH_TTS_ENABLED) playCrashVoice();
@@ -3665,9 +3974,10 @@
   }
 
   function drawMetBox(){
-    // fixed screen position, left side of the basement — a static landmark, doesn't scroll.
+    // fixed screen position, left-of-centre and tucked up near the ceiling — a static
+    // landmark that stays out of the hazard lane, doesn't scroll.
     // whichever light is active (metLightRed) glows bright; the other sits dim.
-    const x = 24, y = GROUND_Y - 78, w = 54, h = 62;
+    const x = 230, y = BASEMENT_CEILING_Y + 10, w = 54, h = 62;
 
     ctx.fillStyle = '#F3EEE1';
     ctx.fillRect(x, y, w, h);
@@ -4311,6 +4621,7 @@
   function drawEventProps(){
     for(const p of eventProps){
       if(p.kind === 'tape') drawCautionTape(p);
+      else if(p.kind === 'basement') drawBasementSign(p);
       else drawDangerSign(p);
     }
   }
@@ -4374,6 +4685,159 @@
     ctx.restore();
   }
 
+  function drawBasementSign(p){
+    const postH = 70;
+    const cx = p.x + p.w/2;
+    const topY = GROUND_Y - postH;
+    ctx.strokeStyle = '#4A4D50';
+    ctx.lineWidth = 4;
+    sketchLine(cx, GROUND_Y, cx, topY);
+
+    // placard
+    const boardW = 78, boardH = 22;
+    ctx.fillStyle = '#F3EEE1';
+    ctx.fillRect(cx-boardW/2, topY, boardW, boardH);
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(cx-boardW/2, topY, boardW, boardH);
+    ctx.fillStyle = '#181816';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('BASEMENT', cx, topY+15);
+
+    // electrical hazard diamond beneath it
+    ctx.save();
+    ctx.translate(cx, topY + boardH + 18);
+    const r = 15;
+    ctx.beginPath();
+    ctx.moveTo(0,-r); ctx.lineTo(r,0); ctx.lineTo(0,r); ctx.lineTo(-r,0);
+    ctx.closePath();
+    ctx.fillStyle = '#F4D93B';
+    ctx.fill();
+    ctx.strokeStyle = '#181816';
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+    ctx.fillStyle = '#181816';
+    ctx.beginPath();
+    ctx.moveTo(2,-9); ctx.lineTo(-6,2); ctx.lineTo(-1,2); ctx.lineTo(-3,9); ctx.lineTo(6,-3); ctx.lineTo(1,-3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawMoltenFootprints(){
+    for(const f of moltenFootprints){
+      const alpha = Math.max(0, 1 - f.t/1.2);
+      const glow = ctx.createRadialGradient(f.x, f.y-2, 1, f.x, f.y-2, 9);
+      glow.addColorStop(0, `rgba(255,150,60,${alpha*0.5})`);
+      glow.addColorStop(1, 'rgba(255,150,60,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(f.x, f.y-2, 9, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = `rgba(232,110,40,${alpha*0.8})`;
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y-2, 3.5, 6, 0, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function drawBackAccessory(item, cx, cy, sliding){
+    if(!item) return;
+    if(item.id === 'acc_wings') drawFlamingWings(cx, cy, sliding);
+    else if(item.id === 'acc_oxygen') drawOxygenTank(cx, cy, sliding);
+    else if(item.id === 'acc_extinguisher') drawFireExtinguisher(cx, cy, sliding);
+    // acc_none and acc_footprints intentionally draw nothing here — footprints are a
+    // ground trail effect, not something worn on the character
+  }
+
+  function drawFlamingWings(cx, cy, sliding){
+    ctx.save();
+    ctx.translate(cx, cy);
+    if(sliding) ctx.rotate(-0.13);
+    const flicker = Math.sin(elapsed*12) * 0.08;
+    for(const side of [-1, 1]){
+      ctx.save();
+      ctx.scale(side, 1);
+      ctx.rotate(flicker * side);
+      ctx.fillStyle = '#D6482F';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(15, -14);
+      ctx.lineTo(10, -2);
+      ctx.lineTo(17, 3);
+      ctx.lineTo(9, 4);
+      ctx.lineTo(13, 13);
+      ctx.lineTo(3, 6);
+      ctx.closePath();
+      ctx.fill();
+      const flicker2 = 0.5 + 0.5*Math.sin(elapsed*18 + side*2);
+      ctx.fillStyle = `rgba(244,217,59,${0.6+flicker2*0.3})`;
+      ctx.beginPath();
+      ctx.moveTo(3, -1);
+      ctx.lineTo(11, -8);
+      ctx.lineTo(8, -1);
+      ctx.lineTo(10, 4);
+      ctx.lineTo(5, 3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  function drawOxygenTank(cx, cy, sliding){
+    ctx.save();
+    ctx.translate(cx, cy);
+    if(sliding) ctx.rotate(-0.13);
+    ctx.fillStyle = '#5B5F63';
+    ctx.beginPath();
+    ctx.moveTo(-5, -16);
+    ctx.lineTo(5, -16);
+    ctx.lineTo(5, 12);
+    ctx.quadraticCurveTo(5, 15, 2, 15);
+    ctx.lineTo(-2, 15);
+    ctx.quadraticCurveTo(-5, 15, -5, 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#2B2B28';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#3F8F4A';
+    ctx.fillRect(-5, -4, 10, 5);
+    ctx.fillStyle = '#8C8C86';
+    ctx.fillRect(-2, -20, 4, 5);
+    ctx.restore();
+  }
+
+  function drawFireExtinguisher(cx, cy, sliding){
+    ctx.save();
+    ctx.translate(cx, cy);
+    if(sliding) ctx.rotate(-0.13);
+    ctx.fillStyle = '#D6482F';
+    ctx.beginPath();
+    ctx.moveTo(-5, -10);
+    ctx.lineTo(5, -10);
+    ctx.lineTo(5, 12);
+    ctx.quadraticCurveTo(5, 15, 2, 15);
+    ctx.lineTo(-2, 15);
+    ctx.quadraticCurveTo(-5, 15, -5, 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#2B2B28';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#8C8C86';
+    ctx.fillRect(-2, -15, 4, 5);
+    ctx.strokeStyle = '#3A3D40';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-2, -13);
+    ctx.lineTo(-11, -10);
+    ctx.stroke();
+    ctx.fillStyle = '#F4D93B';
+    ctx.fillRect(-4, -1, 8, 3);
+    ctx.restore();
+  }
+
   function drawShieldAura(cx, cy){
     const pulse = 15 + Math.sin(elapsed*6) * 2;
     ctx.save();
@@ -4385,6 +4849,63 @@
     ctx.restore();
   }
 
+  function drawMoltenHatEffect(cx, cy, r){
+    // faint pulsing glow, like the hat is still carrying residual heat
+    const pulse = 0.12 + 0.08*Math.sin(elapsed*3);
+    const glow = ctx.createRadialGradient(cx, cy, 1, cx, cy, r*2.3);
+    glow.addColorStop(0, `rgba(255,140,60,${0.3+pulse})`);
+    glow.addColorStop(1, 'rgba(255,140,60,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(cx, cy, r*2.3, 0, Math.PI*2); ctx.fill();
+
+    // small droplets of molten material dripping from the brim on a loop
+    const cycle = 1.3;
+    for(let i=0; i<2; i++){
+      const t = ((elapsed + i*cycle/2) % cycle) / cycle; // 0..1
+      const dropX = cx + (i===0 ? -r*0.55 : r*0.5);
+      const dropY = cy + r*0.35 + t*r*1.6;
+      const alpha = 1 - t;
+      ctx.fillStyle = `rgba(255,150,60,${alpha*0.9})`;
+      ctx.beginPath();
+      ctx.ellipse(dropX, dropY, 2, 2.6, 0, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function drawSparklePoint(context, x, y, size, alpha){
+    context.save();
+    context.globalAlpha = alpha;
+    context.fillStyle = '#FFFFFF';
+    context.beginPath();
+    context.moveTo(x, y-size);
+    context.quadraticCurveTo(x+size*0.15, y-size*0.15, x+size, y);
+    context.quadraticCurveTo(x+size*0.15, y+size*0.15, x, y+size);
+    context.quadraticCurveTo(x-size*0.15, y+size*0.15, x-size, y);
+    context.quadraticCurveTo(x-size*0.15, y-size*0.15, x, y-size);
+    context.closePath();
+    context.fill();
+    context.fillStyle = 'rgba(207,239,251,0.85)';
+    context.beginPath();
+    context.arc(x, y, size*0.28, 0, Math.PI*2);
+    context.fill();
+    context.restore();
+  }
+
+  function drawDiamondHatEffect(cx, cy, r){
+    // 3 twinkling sparkle points around the hat — each pops brightly then fades,
+    // on its own timing so they never twinkle in unison
+    const sparkles = [
+      { dx: -r*0.7, dy: -r*0.5, phase: 0,   speed: 4.5 },
+      { dx:  r*0.6, dy: -r*0.3, phase: 2.1, speed: 3.8 },
+      { dx:  r*0.1, dy: -r*0.95, phase: 4.2, speed: 5.2 }
+    ];
+    for(const s of sparkles){
+      const twinkle = Math.max(0, Math.sin(elapsed*s.speed + s.phase));
+      const alpha = twinkle*twinkle*twinkle; // sharp pop, mostly dark, brief bright flash
+      if(alpha > 0.04) drawSparklePoint(ctx, cx+s.dx, cy+s.dy, 3.2+alpha*1.6, alpha);
+    }
+  }
+
   function drawPlayer(){
     ctx.strokeStyle = '#2B2B28';
     ctx.lineWidth = 4;
@@ -4392,6 +4913,7 @@
 
     const headCosmetic = getEquippedItem('head');
     const shirtCosmetic = getEquippedItem('shirt');
+    const accCosmetic = getEquippedItem('accessories');
     const x = player.x;
     const legSwing = Math.sin(player.legPhase) * 16;
 
@@ -4423,6 +4945,8 @@
       }
       ctx.restore();
 
+      drawBackAccessory(accCosmetic, x-6, y-14, true);
+
       ctx.strokeStyle = '#2B2B28';
       ctx.lineWidth = 4;
       ctx.beginPath();
@@ -4439,6 +4963,8 @@
       ctx.strokeStyle = headCosmetic.dark;
       ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(x+29, y-8); ctx.lineTo(x+47, y-8); ctx.stroke();
+      if(headCosmetic.id === 'hat_molten') drawMoltenHatEffect(x+38, y-8, 9);
+      if(headCosmetic.id === 'hat_diamond') drawDiamondHatEffect(x+38, y-8, 9);
 
       // legs tucked back
       ctx.strokeStyle = '#2B2B28';
@@ -4499,6 +5025,8 @@
       ctx.beginPath(); ctx.moveTo(x-8, y-24); ctx.lineTo(x+8, y-24); ctx.stroke();
     }
 
+    drawBackAccessory(accCosmetic, x-9, y-30, false);
+
     // head
     ctx.strokeStyle = '#2B2B28';
     ctx.lineWidth = 4;
@@ -4520,6 +5048,8 @@
     ctx.arc(headCX, headCY-11, 2, 0, Math.PI*2);
     ctx.fillStyle = headCosmetic.dark;
     ctx.fill();
+    if(headCosmetic.id === 'hat_molten') drawMoltenHatEffect(headCX, headCY-3, 12);
+    if(headCosmetic.id === 'hat_diamond') drawDiamondHatEffect(headCX, headCY-3, 12);
 
     if(player.coffeeTimer > 0){
       const orbitR = 30;
@@ -5235,7 +5765,7 @@
       const cx = pu.x + pu.w/2;
       const cy = pu.y + pu.h/2 + bob;
       const pulse = 1 + Math.sin(elapsed*5 + pu.bobT) * 0.12;
-      const glowColor = pu.kind === 'highlight' ? '214,55,58' : pu.kind === 'slop' ? '230,126,34' : pu.kind === 'ingot' ? '221,228,232' : pu.kind === 'water' ? '78,168,232' : '244,217,59';
+      const glowColor = pu.kind === 'highlight' ? '214,55,58' : pu.kind === 'slop' ? '230,126,34' : pu.kind === 'ingot' ? '221,228,232' : pu.kind === 'water' ? '78,168,232' : pu.kind === 'boots' ? '244,217,59' : '244,217,59';
 
       // ground contact glow pool
       const pool = ctx.createRadialGradient(cx, GROUND_Y, 1, cx, GROUND_Y, 26);
@@ -5267,6 +5797,7 @@
       else if(pu.kind === 'slop') drawSlopIcon(cx, cy);
       else if(pu.kind === 'ingot') drawIngotIcon(cx, cy, pu.bobT);
       else if(pu.kind === 'water') drawWaterBottleIcon(cx, cy);
+      else if(pu.kind === 'boots') drawRubberBootIcon(cx, cy);
       else drawHardHatIcon(cx, cy);
     }
   }
@@ -5461,6 +5992,41 @@
     ctx.restore();
   }
 
+  function drawRubberBootIcon(cx, cy){
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // boot shaft
+    ctx.fillStyle = '#F4D93B';
+    ctx.beginPath();
+    ctx.moveTo(-7, -12);
+    ctx.lineTo(4, -12);
+    ctx.lineTo(4, 4);
+    ctx.lineTo(10, 4);
+    ctx.quadraticCurveTo(13, 4, 13, 8);
+    ctx.lineTo(13, 10);
+    ctx.lineTo(-7, 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#8A7A1E';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // sole
+    ctx.fillStyle = '#3A3D40';
+    ctx.fillRect(-7, 9, 20, 3);
+
+    // top cuff band
+    ctx.strokeStyle = '#8A7A1E';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-7, -8);
+    ctx.lineTo(4, -8);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
   function drawParticles(){
     ctx.strokeStyle = 'rgba(85,83,76,0.5)';
     ctx.lineWidth = 2;
@@ -5514,6 +6080,7 @@
     drawObstacles();
     if(inBasement) for(const b of lightningBolts) drawLightningBolt(b);
     drawPowerups();
+    drawMoltenFootprints();
     drawPlayer();
     drawParticles();
     drawFloatTexts();
@@ -5531,6 +6098,7 @@
       update(dt);
       scoreLabel.textContent = 'SCORE ' + Math.floor(distance/10);
       buffShieldEl.classList.toggle('active', player.hasShield);
+      buffBootsEl.classList.toggle('active', player.bootsCharge);
       const highlightOn = player.highlightTimer > 0;
       buffHighlightEl.classList.toggle('active', highlightOn);
       if(highlightOn) highlightTimerLabel.textContent = Math.ceil(player.highlightTimer) + 's';
