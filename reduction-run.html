@@ -350,6 +350,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    margin-top: 30px;
   }
   .menuEyebrow {
     font-family: inherit;
@@ -424,7 +425,7 @@
   .settingsGearBtn {
     position: absolute;
     top: 16px;
-    right: 16px;
+    left: 16px;
     width: 40px;
     height: 40px;
     border-radius: 50%;
@@ -2920,6 +2921,16 @@
     return !obstacles.some(ob => ob.x < right && ob.x + ob.w > left);
   }
 
+  // a much smaller, fixed-size buffer for the basement specifically — hazards there spawn
+  // roughly every ~1s, far denser than the surface, so the surface's speed-scaled buffer
+  // (200-300+px) is almost always occupied by *something* and effectively never clears
+  function basementPowerupSpawnSafe(puWidth){
+    const buffer = 50;
+    const left = (W + 40) - buffer;
+    const right = (W + 40) + puWidth + buffer;
+    return !obstacles.some(ob => ob.x < right && ob.x + ob.w > left);
+  }
+
   // ensures a newly-spawned pickup doesn't land on/overlap an already-spawned one
   function powerupOverlapSafe(spawnX, minGap){
     return powerups.every(pu => Math.abs(pu.x - spawnX) > minGap);
@@ -3274,9 +3285,12 @@
     }
     updateLightningBolts(dt);
 
-    // rubber boots — basement-exclusive pickup, blocks one lightning bolt hit
-    if(!player.bootsCharge && basementTime - lastBootsSpawnTime >= 12 &&
-       powerupSpawnSafe(24) && powerupOverlapSafe(W+40, 40) && Math.random() < 0.02){
+    // rubber boots — basement-exclusive pickup, blocks one lightning bolt hit.
+    // Below, spawning becomes guaranteed (not just a random roll) once it's been a while
+    // since entering — mirrors the same fix used for water bottles on the surface.
+    if(!player.bootsCharge && basementTime - lastBootsSpawnTime >= 8 &&
+       basementPowerupSpawnSafe(24) && powerupOverlapSafe(W+40, 40) &&
+       (basementTime >= 25 || Math.random() < 0.02)){
       powerups.push({
         x: W + 40,
         y: GROUND_Y - 26,
@@ -4054,6 +4068,11 @@
     if(player.coffeeTimer > 0) return; // coffee buff: fully invulnerable, ignore any death trigger
     state = 'dead';
     pauseBtn.classList.add('hidden');
+    buffShieldEl.classList.remove('active');
+    buffBootsEl.classList.remove('active');
+    buffHighlightEl.classList.remove('active');
+    buffSlopEl.classList.remove('active');
+    buffCoffeeEl.classList.remove('active');
     shake = 1;
     playCrash();
     if(DEATH_TTS_ENABLED) playCrashVoice();
@@ -4809,7 +4828,7 @@
     wall.addColorStop(0, skyTop);
     wall.addColorStop(1, skyBottom);
     ctx.fillStyle = wall;
-    ctx.fillRect(0,0,W,GROUND_Y+2);
+    ctx.fillRect(0, 0, W, GROUND_Y+2);
 
     drawStars(daylight);
     drawCelestialBody(daylight, cycleT);
