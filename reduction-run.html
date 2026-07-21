@@ -295,8 +295,36 @@
 
   /* --- death screen: black, cool, dramatic --- */
   .overlay--dead {
-    background: rgba(12,12,11,0.97);
+    background: #0C0C0B;
     color: #F3EEE1;
+    overflow: hidden;
+  }
+  #deathSceneCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+  }
+  .deadScrim {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(to bottom, rgba(12,12,11,0.82) 0%, rgba(12,12,11,0.35) 38%, rgba(12,12,11,0.35) 60%, rgba(12,12,11,0.88) 100%);
+  }
+  .deadContent {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-start;
+    padding-top: 4%;
+  }
+  .overlay--dead .deadButtons {
+    margin-top: auto;
+    padding-bottom: 3%;
   }
   .overlay--dead h1 {
     color: #F3EEE1;
@@ -506,6 +534,35 @@
     text-shadow: 0 2px 6px rgba(0,0,0,0.6);
     margin-bottom: 10px;
   }
+  #tutorialCanvas {
+    border-radius: 8px;
+    background: #CFEFFB;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    max-width: 70vw;
+    max-height: 40vh;
+    height: auto;
+  }
+  #tutorialOverlay {
+    padding: 8px;
+    gap: 0;
+  }
+  .tutorialCaption {
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: clamp(10px, 2.2vw, 13px);
+    text-align: center;
+    max-width: min(320px, 80vw);
+    margin: 6px 0 5px;
+    line-height: 1.25;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  #tutorialDots { margin-bottom: 4px; }
+  #tutorialOverlay .btn {
+    margin-top: 0;
+    padding: 7px 16px;
+    font-size: clamp(11px, 2.2vw, 14px);
+  }
+  #tutorialPrevBtn.hidden, #tutorialSkipBtn.hidden { display: none; }
   .lkPanels {
     display: flex;
     gap: 12px;
@@ -670,17 +727,17 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     background: rgba(255,255,255,0.1);
     border: 1px solid rgba(255,255,255,0.25);
     border-radius: 8px;
-    padding: 6px 5px;
+    padding: 7px 6px;
     text-align: center;
-    width: 96px;
+    width: 112px;
   }
   .buffInfoIconWrap {
-    width: 26px;
-    height: 26px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     background: #FFFFFF;
     display: flex;
@@ -692,8 +749,9 @@
   .buffInfoIcon { flex: none; }
   .buffInfoText {
     color: #FFFFFF;
-    font-size: clamp(8px, 1.7vw, 9.5px);
-    line-height: 1.2;
+    font-size: clamp(10px, 2.1vw, 12px);
+    font-weight: 700;
+    line-height: 1.3;
   }
   .buffInfoText b { color: #FFF3B0; }
   .pageDots {
@@ -801,41 +859,36 @@
       <div class="menuBottom">
         <div class="menuButtons" id="menuButtons">
           <button class="btn btnStart" id="startBtn">Start</button>
-          <button class="btn btnSecondary" id="controlsBtn">How To Play</button>
+          <button class="btn btnSecondary" id="tutorialBtn">Tutorial</button>
+          <button class="btn btnSecondary" id="controlsBtn">Buffs</button>
           <button class="btn btnSecondary" id="shopBtnHome">Shop</button>
           <button class="btn btnSecondary muteBtn" id="muteBtn" aria-label="Mute">&#128266;</button>
         </div>
         <div class="controlsPanel hidden" id="controlsPanel">
           <div class="htpPage" id="htpPage1">
-            <div class="controlsRow">
-              <span class="controlChip">&uarr; / SPACE / TAP LEFT — Jump</span>
-              <span class="controlChip">&darr; / TAP RIGHT — Slide</span>
+            <div class="buffInfoList">
+              <div class="buffInfoRow">
+                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon0" width="26" height="26"></canvas></div>
+                <div class="buffInfoText"><b>Hard Hat</b><br>Blocks the next hit — one free save.</div>
+              </div>
+              <div class="buffInfoRow">
+                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon1" width="26" height="26"></canvas></div>
+                <div class="buffInfoText"><b>Take 5</b><br>Highlights hitboxes for 15s.</div>
+              </div>
+              <div class="buffInfoRow">
+                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon2" width="26" height="26"></canvas></div>
+                <div class="buffInfoText"><b>Slop</b><br>Slows the game 30% for 15s.</div>
+              </div>
             </div>
           </div>
           <div class="htpPage hidden" id="htpPage2">
             <div class="buffInfoList">
               <div class="buffInfoRow">
-                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon0" width="18" height="18"></canvas></div>
-                <div class="buffInfoText"><b>Hard Hat</b><br>Blocks the next hit — one free save.</div>
-              </div>
-              <div class="buffInfoRow">
-                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon1" width="18" height="18"></canvas></div>
-                <div class="buffInfoText"><b>Take 5</b><br>Highlights hitboxes for 15s.</div>
-              </div>
-              <div class="buffInfoRow">
-                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon2" width="18" height="18"></canvas></div>
-                <div class="buffInfoText"><b>Slop</b><br>Slows the game 30% for 15s.</div>
-              </div>
-            </div>
-          </div>
-          <div class="htpPage hidden" id="htpPage3">
-            <div class="buffInfoList">
-              <div class="buffInfoRow">
-                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon3" width="18" height="18"></canvas></div>
+                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon3" width="26" height="26"></canvas></div>
                 <div class="buffInfoText"><b>Coffee</b><br>+100% speed, invulnerable for 10s. Safety Guy exclusive.</div>
               </div>
               <div class="buffInfoRow">
-                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon4" width="18" height="18"></canvas></div>
+                <div class="buffInfoIconWrap"><canvas class="buffInfoIcon" id="buffInfoIcon4" width="26" height="26"></canvas></div>
                 <div class="buffInfoText"><b>Rubber Boots</b><br>Blocks one lightning bolt hit. Basement exclusive.</div>
               </div>
             </div>
@@ -843,7 +896,6 @@
           <div class="pageDots" id="htpDots">
             <span class="pageDot active" data-page="1"></span>
             <span class="pageDot" data-page="2"></span>
-            <span class="pageDot" data-page="3"></span>
           </div>
           <button class="btn btnSecondary" id="controlsBackBtn">Back</button>
         </div>
@@ -918,15 +970,36 @@
       </div>
     </div>
 
-    <div class="overlay overlay--dead" id="overOverlay">
-      <h1 id="deathHeadline">Let's pretend nobody saw that</h1>
-      <p class="scoreLine">SCORE <b id="finalScore">0</b> &nbsp;—&nbsp; BEST <b id="finalBest">0</b></p>
-      <p id="newBestNote" class="hint hidden">new best!</p>
-      <p class="hint" id="ingotBonusNote">◆ +0 ingots this run</p>
+    <div class="overlay overlay--minigame" id="tutorialOverlay">
+      <canvas id="tutorialCanvas" width="210" height="84"></canvas>
+      <div class="tutorialCaption" id="tutorialCaption"></div>
+      <div class="pageDots" id="tutorialDots">
+        <span class="pageDot active" data-page="1"></span>
+        <span class="pageDot" data-page="2"></span>
+        <span class="pageDot" data-page="3"></span>
+        <span class="pageDot" data-page="4"></span>
+        <span class="pageDot" data-page="5"></span>
+      </div>
       <div class="deadButtons">
-        <button class="btn" id="retryBtn">Retry</button>
-        <button class="btn btnSecondary" id="homeBtn">Home</button>
-        <button class="btn btnSecondary" id="shopBtnDead">Shop</button>
+        <button class="btn btnSecondary" id="tutorialSkipBtn">Skip</button>
+        <button class="btn btnSecondary" id="tutorialPrevBtn">Back</button>
+        <button class="btn btnStart" id="tutorialNextBtn">Next</button>
+      </div>
+    </div>
+
+    <div class="overlay overlay--dead" id="overOverlay">
+      <canvas id="deathSceneCanvas" width="800" height="450"></canvas>
+      <div class="deadScrim"></div>
+      <div class="deadContent">
+        <h1 id="deathHeadline">Let's pretend nobody saw that</h1>
+        <p class="scoreLine">SCORE <b id="finalScore">0</b> &nbsp;—&nbsp; BEST <b id="finalBest">0</b></p>
+        <p id="newBestNote" class="hint hidden">new best!</p>
+        <p class="hint" id="ingotBonusNote">◆ +0 ingots this run</p>
+        <div class="deadButtons">
+          <button class="btn" id="retryBtn">Retry</button>
+          <button class="btn btnSecondary" id="homeBtn">Home</button>
+          <button class="btn btnSecondary" id="shopBtnDead">Shop</button>
+        </div>
       </div>
     </div>
 
@@ -982,6 +1055,8 @@
   const overOverlay = document.getElementById('overOverlay');
   const finalScoreEl = document.getElementById('finalScore');
   const deathHeadline = document.getElementById('deathHeadline');
+  const deathSceneCanvas = document.getElementById('deathSceneCanvas');
+  const dctx = deathSceneCanvas.getContext('2d');
   const finalBestEl = document.getElementById('finalBest');
   const newBestNote = document.getElementById('newBestNote');
   const ingotBonusNote = document.getElementById('ingotBonusNote');
@@ -994,7 +1069,6 @@
   const htpNextBtn = document.getElementById('htpNextBtn');
   const htpPage1 = document.getElementById('htpPage1');
   const htpPage2 = document.getElementById('htpPage2');
-  const htpPage3 = document.getElementById('htpPage3');
   const htpDots = document.getElementById('htpDots').querySelectorAll('.pageDot');
   const retryBtn = document.getElementById('retryBtn');
   const homeBtn = document.getElementById('homeBtn');
@@ -1037,6 +1111,14 @@
   const pauseOverlay = document.getElementById('pauseOverlay');
   const resumeBtn = document.getElementById('resumeBtn');
   const pauseHomeBtn = document.getElementById('pauseHomeBtn');
+  const tutorialBtn = document.getElementById('tutorialBtn');
+  const tutorialOverlay = document.getElementById('tutorialOverlay');
+  const tutorialCanvas = document.getElementById('tutorialCanvas');
+  const tutorialCaption = document.getElementById('tutorialCaption');
+  const tutorialDots = document.getElementById('tutorialDots').querySelectorAll('.pageDot');
+  const tutorialPrevBtn = document.getElementById('tutorialPrevBtn');
+  const tutorialNextBtn = document.getElementById('tutorialNextBtn');
+  const tutorialSkipBtn = document.getElementById('tutorialSkipBtn');
   const zoneJump = document.getElementById('zoneJump');
   const zoneSlide = document.getElementById('zoneSlide');
 
@@ -1651,16 +1733,15 @@
   bindZone(zoneSlide, ()=>{ keys.slide = true; }, ()=>{ keys.slide = false; });
 
   startBtn.addEventListener('click', startGame);
-  const HTP_PAGE_COUNT = 3;
+  const HTP_PAGE_COUNT = 2;
   let htpPageNum = 1;
   function showHtpPage(n){
     htpPageNum = n;
     htpPage1.classList.toggle('hidden', n !== 1);
     htpPage2.classList.toggle('hidden', n !== 2);
-    htpPage3.classList.toggle('hidden', n !== 3);
     htpDots.forEach((d,i) => d.classList.toggle('active', i === n-1));
-    if(n === 2) drawBuffInfoIcons2();
-    if(n === 3) drawBuffInfoIcons3();
+    if(n === 1) drawBuffInfoIconsPage1();
+    if(n === 2) drawBuffInfoIconsPage2();
   }
 
   controlsBtn.addEventListener('click', () => {
@@ -1684,12 +1765,12 @@
   let shopOrigin = 'home'; // which overlay to return to when Back is pressed
   let activeShopSlot = 'head';
 
-  function drawBuffInfoIcons2(){
+  function drawBuffInfoIconsPage1(){
     drawBuffInfoIcon(document.getElementById('buffInfoIcon0'), 'shield');
     drawBuffInfoIcon(document.getElementById('buffInfoIcon1'), 'highlight');
     drawBuffInfoIcon(document.getElementById('buffInfoIcon2'), 'slop');
   }
-  function drawBuffInfoIcons3(){
+  function drawBuffInfoIconsPage2(){
     drawBuffInfoIcon(document.getElementById('buffInfoIcon3'), 'coffee');
     drawBuffInfoIcon(document.getElementById('buffInfoIcon4'), 'boots');
   }
@@ -2101,7 +2182,7 @@
     const name = nameInput.value.trim().slice(0, 26) || 'Worker';
     saveName(name);
     nameOverlay.classList.remove('show');
-    startOverlay.classList.add('show');
+    openTutorial();
   }
   nameConfirmBtn.addEventListener('click', confirmName);
   nameInput.addEventListener('keydown', e => { if(e.key === 'Enter') confirmName(); });
@@ -2454,6 +2535,180 @@
     userPaused = false;
     pauseOverlay.classList.remove('show');
     goHome();
+  });
+
+  // ---------- animated tutorial ----------
+  const TUTORIAL_KEY = 'stickRunnerTutorialSeen';
+  let tutorialSlideIdx = 0;
+  let tutorialRafId = null;
+  let tutorialT0 = 0;
+  const tctx = tutorialCanvas.getContext('2d');
+  const TW = tutorialCanvas.width, TH = tutorialCanvas.height, TGROUND = TH - 22;
+
+  function tutGround(t, scrollSpeed){
+    tctx.fillStyle = '#CFEFFB';
+    tctx.fillRect(0, 0, TW, TH);
+    tctx.fillStyle = '#7BAE5E';
+    tctx.fillRect(0, TGROUND, TW, TH - TGROUND);
+    tctx.strokeStyle = '#4C7A38';
+    tctx.lineWidth = 2;
+    tctx.beginPath(); tctx.moveTo(0, TGROUND); tctx.lineTo(TW, TGROUND); tctx.stroke();
+    const off = (t*scrollSpeed) % 30;
+    tctx.strokeStyle = 'rgba(76,122,56,0.4)';
+    for(let x = -off; x < TW; x += 30){
+      tctx.beginPath(); tctx.moveTo(x, TGROUND+3); tctx.lineTo(x+8, TH); tctx.stroke();
+    }
+  }
+
+  function tutStickFigure(x, y, legAngle, armAngle, crouch){
+    tctx.strokeStyle = '#2B2B28';
+    tctx.lineWidth = 3;
+    tctx.lineCap = 'round';
+    const h = crouch ? 14 : 26;
+    // head
+    tctx.beginPath(); tctx.arc(x, y-h-8, 6, 0, Math.PI*2); tctx.stroke();
+    // torso
+    tctx.beginPath(); tctx.moveTo(x, y-h-2); tctx.lineTo(x, y-h+ (crouch?8:16)); tctx.stroke();
+    // legs
+    tctx.beginPath(); tctx.moveTo(x, y-h+(crouch?8:16)); tctx.lineTo(x+Math.sin(legAngle)*10, y); tctx.stroke();
+    tctx.beginPath(); tctx.moveTo(x, y-h+(crouch?8:16)); tctx.lineTo(x-Math.sin(legAngle)*10, y); tctx.stroke();
+    // arms
+    tctx.beginPath(); tctx.moveTo(x, y-h+2); tctx.lineTo(x+Math.sin(armAngle)*9, y-h-6); tctx.stroke();
+    tctx.beginPath(); tctx.moveTo(x, y-h+2); tctx.lineTo(x-Math.sin(armAngle)*9, y-h-6); tctx.stroke();
+  }
+
+  const TUTORIAL_SLIDES = [
+    { // 1: jump
+      caption: 'Tap the LEFT side of the screen (or ↑ / SPACE) to JUMP over ground hazards.',
+      draw(t){
+        tutGround(t, 55);
+        const cycle = t % 2.2;
+        const obX = TW - 40 - (cycle/2.2)*(TW+20);
+        tctx.fillStyle = '#5B5F63';
+        tctx.fillRect(obX, TGROUND-22, 20, 22);
+        const jumping = cycle > 0.85 && cycle < 1.55;
+        const jumpT = jumping ? (cycle-0.85)/0.7 : 0;
+        const jumpY = jumping ? -Math.sin(jumpT*Math.PI)*32 : 0;
+        tutStickFigure(70, TGROUND+jumpY, Math.sin(t*8), Math.cos(t*8), false);
+      }
+    },
+    { // 2: slide
+      caption: 'Tap the RIGHT side of the screen (or ↓) to SLIDE under overhead hazards.',
+      draw(t){
+        tutGround(t, 55);
+        const cycle = t % 2.2;
+        const obX = TW - 40 - (cycle/2.2)*(TW+20);
+        tctx.fillStyle = '#3A3D40';
+        tctx.fillRect(obX, TGROUND-46, 26, 8);
+        tctx.strokeStyle = '#181816';
+        tctx.lineWidth = 2;
+        tctx.beginPath(); tctx.moveTo(obX+4, TGROUND-38); tctx.lineTo(obX+4, TGROUND-30); tctx.stroke();
+        tctx.beginPath(); tctx.moveTo(obX+22, TGROUND-38); tctx.lineTo(obX+22, TGROUND-30); tctx.stroke();
+        const sliding = cycle > 0.85 && cycle < 1.55;
+        tutStickFigure(70, TGROUND, Math.sin(t*8), Math.cos(t*8), sliding);
+      }
+    },
+    { // 3: hydration
+      caption: 'Keep an eye on your HYDRATION meter — grab water bottles before it runs dry.',
+      draw(t){
+        tctx.fillStyle = '#1F242B';
+        tctx.fillRect(0, 0, TW, TH);
+        const cycle = (t % 3) / 3;
+        const level = cycle < 0.7 ? 1 - (cycle/0.7)*0.85 : 0.15 + ((cycle-0.7)/0.3)*0.85;
+        const bx = TW/2-70, by = TH/2-9, bw = 140, bh = 18;
+        tctx.fillStyle = 'rgba(10,10,10,0.55)';
+        tctx.fillRect(bx, by, bw, bh);
+        tctx.fillStyle = level < 0.3 ? '#C0392B' : '#2E86C1';
+        tctx.fillRect(bx, by, bw*level, bh);
+        tctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        tctx.lineWidth = 2;
+        tctx.strokeRect(bx, by, bw, bh);
+        if(cycle > 0.68 && cycle < 0.82){
+          tctx.fillStyle = '#2E86C1';
+          tctx.fillRect(TW/2-8, by-26, 16, 20);
+          tctx.fillStyle = '#FFFFFF';
+          tctx.fillRect(TW/2-4, by-30, 8, 5);
+        }
+      }
+    },
+    { // 4: ingots
+      caption: 'Collect INGOTS to unlock cosmetics in the shop, and grab BUFFS for temporary powers.',
+      draw(t){
+        tctx.fillStyle = '#1F242B';
+        tctx.fillRect(0, 0, TW, TH);
+        const cycle = t % 1.6;
+        const cx = TW/2, cy = TH/2 - 6;
+        if(cycle < 1.2){
+          const bob = Math.sin(t*4)*4;
+          const scaleX = Math.abs(Math.cos(t*3));
+          tctx.save();
+          tctx.translate(cx, cy+bob);
+          tctx.scale(scaleX, 1);
+          tctx.fillStyle = '#DDE4E8';
+          tctx.beginPath(); tctx.arc(0, 0, 14, 0, Math.PI*2); tctx.fill();
+          tctx.strokeStyle = '#8C9199';
+          tctx.lineWidth = 2;
+          tctx.stroke();
+          tctx.restore();
+        } else {
+          const p = (cycle-1.2)/0.4;
+          tctx.globalAlpha = 1-p;
+          tctx.fillStyle = '#FFF3B0';
+          tctx.font = 'bold 16px sans-serif';
+          tctx.textAlign = 'center';
+          tctx.fillText('+1 ◆', cx, cy - p*20);
+          tctx.globalAlpha = 1;
+        }
+      }
+    },
+    { // 5: outro
+      caption: 'Survive as long as you can. Good luck out there!',
+      draw(t){
+        tutGround(t, 40);
+        tutStickFigure(TW/2, TGROUND, Math.sin(t*8), Math.cos(t*8), false);
+      }
+    }
+  ];
+
+  function tutorialLoop(now){
+    if(!tutorialOverlay.classList.contains('show')) return;
+    const t = (now - tutorialT0) / 1000;
+    TUTORIAL_SLIDES[tutorialSlideIdx].draw(t);
+    tutorialRafId = requestAnimationFrame(tutorialLoop);
+  }
+
+  function showTutorialSlide(idx){
+    tutorialSlideIdx = idx;
+    tutorialCaption.textContent = TUTORIAL_SLIDES[idx].caption;
+    tutorialDots.forEach((d,i) => d.classList.toggle('active', i === idx));
+    tutorialPrevBtn.classList.toggle('hidden', idx === 0);
+    tutorialSkipBtn.classList.toggle('hidden', idx === TUTORIAL_SLIDES.length-1);
+    tutorialNextBtn.textContent = idx === TUTORIAL_SLIDES.length-1 ? "Let's go!" : 'Next';
+    tutorialT0 = performance.now();
+  }
+
+  function openTutorial(){
+    startOverlay.classList.remove('show');
+    nameOverlay.classList.remove('show');
+    tutorialOverlay.classList.add('show');
+    showTutorialSlide(0);
+    if(tutorialRafId) cancelAnimationFrame(tutorialRafId);
+    tutorialRafId = requestAnimationFrame(tutorialLoop);
+  }
+
+  function closeTutorial(){
+    tutorialOverlay.classList.remove('show');
+    if(tutorialRafId) cancelAnimationFrame(tutorialRafId);
+    Store.set(TUTORIAL_KEY, 'true');
+    startOverlay.classList.add('show');
+  }
+
+  tutorialBtn.addEventListener('click', openTutorial);
+  tutorialSkipBtn.addEventListener('click', closeTutorial);
+  tutorialPrevBtn.addEventListener('click', () => showTutorialSlide(Math.max(0, tutorialSlideIdx-1)));
+  tutorialNextBtn.addEventListener('click', () => {
+    if(tutorialSlideIdx === TUTORIAL_SLIDES.length-1) closeTutorial();
+    else showTutorialSlide(tutorialSlideIdx+1);
   });
 
   // ---------- game state ----------
@@ -3564,6 +3819,237 @@
 
   const DEATH_TTS_ENABLED = false; // temporarily disabled — flip back to true to re-enable
 
+  function dJit(){ return (Math.random()-0.5)*1.4; }
+  function dLine(x1,y1,x2,y2){
+    dctx.beginPath();
+    dctx.moveTo(x1+dJit(), y1+dJit());
+    const mx=(x1+x2)/2+dJit(), my=(y1+y2)/2+dJit();
+    dctx.quadraticCurveTo(mx, my, x2+dJit(), y2+dJit());
+    dctx.stroke();
+  }
+
+  function dSceneBackdrop(){
+    dctx.clearRect(0, 0, 800, 450);
+    const bg = dctx.createLinearGradient(0, 0, 0, GROUND_Y);
+    bg.addColorStop(0, '#3D9BE9');
+    bg.addColorStop(1, '#CFEFFB');
+    dctx.fillStyle = bg;
+    dctx.fillRect(0, 0, 800, GROUND_Y);
+    dctx.fillStyle = '#8A8578';
+    dctx.fillRect(0, GROUND_Y, 800, 450-GROUND_Y);
+    dctx.strokeStyle = '#5B5750';
+    dctx.lineWidth = 2;
+    dLine(0, GROUND_Y+1, 800, GROUND_Y+1);
+  }
+
+  function dHat(cx, cy, angle){
+    dctx.save();
+    dctx.translate(cx, cy);
+    dctx.rotate(angle);
+    dctx.fillStyle = '#D6482F';
+    dctx.beginPath();
+    dctx.arc(0, 0, 13, Math.PI, 0);
+    dctx.fill();
+    dctx.strokeStyle = '#8C2E1B';
+    dctx.lineWidth = 2;
+    dctx.stroke();
+    dctx.beginPath(); dctx.moveTo(-14, 0); dctx.lineTo(14, 0); dctx.stroke();
+    dctx.restore();
+  }
+
+  // Scene 1: face-planted into a stack of crates, legs up in the air
+  function drawDeathScene1(){
+    dSceneBackdrop();
+    const cx = 420;
+    dctx.strokeStyle = '#2B2B28';
+    dctx.lineWidth = 3;
+    // toppled crate stack
+    dctx.fillStyle = '#8A6A45';
+    dctx.save();
+    dctx.translate(cx+40, GROUND_Y-30);
+    dctx.rotate(-0.12);
+    dctx.fillRect(-30, -26, 60, 52);
+    dctx.strokeStyle = '#5B4530';
+    dctx.lineWidth = 2;
+    dctx.strokeRect(-30, -26, 60, 52);
+    dctx.beginPath(); dctx.moveTo(-30,-26); dctx.lineTo(30,26); dctx.stroke();
+    dctx.beginPath(); dctx.moveTo(30,-26); dctx.lineTo(-30,26); dctx.stroke();
+    dctx.restore();
+    // impact stars
+    dctx.strokeStyle = '#F4D93B';
+    dctx.lineWidth = 2;
+    for(let i=0;i<4;i++){
+      const a = i*1.4;
+      dLine(cx+30+Math.cos(a)*20, GROUND_Y-40+Math.sin(a)*20, cx+30+Math.cos(a)*32, GROUND_Y-40+Math.sin(a)*32);
+    }
+    // stick figure face-down, legs up
+    const gx = cx-40, gy = GROUND_Y;
+    dctx.strokeStyle = '#2B2B28';
+    dctx.lineWidth = 3;
+    dLine(gx, gy-8, gx+34, gy-6); // torso along the ground
+    dLine(gx+34, gy-6, gx+30, gy-40); // legs kicked up
+    dLine(gx+34, gy-6, gx+44, gy-36);
+    dLine(gx, gy-8, gx-16, gy-4); // arm sprawled
+    dctx.beginPath(); dctx.arc(gx+6, gy-4, 8, 0, Math.PI*2); dctx.stroke(); // head down
+    dHat(gx-14, gy-2, -0.5);
+  }
+
+  // Scene 2: mummified in caution tape
+  function drawDeathScene2(){
+    dSceneBackdrop();
+    const cx = 400, gy = GROUND_Y;
+    // knocked-over sign post trailing tape
+    dctx.strokeStyle = '#3A3D40';
+    dctx.lineWidth = 4;
+    dLine(cx+90, gy-4, cx+150, gy-30);
+    // body bundle on the ground
+    dctx.fillStyle = '#F3EEE1';
+    dctx.beginPath();
+    dctx.ellipse(cx, gy-14, 34, 15, 0, 0, Math.PI*2);
+    dctx.fill();
+    dctx.strokeStyle = '#8C8C86';
+    dctx.lineWidth = 1.5;
+    dctx.stroke();
+    // diagonal caution stripes over the bundle
+    dctx.save();
+    dctx.beginPath();
+    dctx.ellipse(cx, gy-14, 34, 15, 0, 0, Math.PI*2);
+    dctx.clip();
+    dctx.strokeStyle = '#181816';
+    dctx.lineWidth = 7;
+    for(let x=-40;x<40;x+=14){
+      dctx.beginPath(); dctx.moveTo(cx+x, gy-32); dctx.lineTo(cx+x+18, gy+4); dctx.stroke();
+    }
+    dctx.strokeStyle = '#F4D93B';
+    dctx.lineWidth = 7;
+    for(let x=-33;x<40;x+=14){
+      dctx.beginPath(); dctx.moveTo(cx+x, gy-32); dctx.lineTo(cx+x+18, gy+4); dctx.stroke();
+    }
+    dctx.restore();
+    // feet poking out one end
+    dctx.strokeStyle = '#2B2B28';
+    dctx.lineWidth = 3;
+    dLine(cx+32, gy-16, cx+44, gy-8);
+    dLine(cx+32, gy-12, cx+46, gy-2);
+    // hard hat crooked on top
+    dHat(cx-30, gy-24, 0.4);
+  }
+
+  // Scene 3: dazed on the ground, seeing stars
+  function drawDeathScene3(){
+    dSceneBackdrop();
+    const cx = 400, gy = GROUND_Y;
+    dctx.strokeStyle = '#2B2B28';
+    dctx.lineWidth = 3;
+    // seated body
+    dLine(cx, gy-4, cx, gy-30); // torso
+    dLine(cx, gy-4, cx+16, gy); // leg
+    dLine(cx, gy-4, cx-16, gy); // leg
+    dLine(cx, gy-22, cx-14, gy-14); // arm
+    dLine(cx, gy-22, cx+14, gy-14); // arm
+    dctx.beginPath(); dctx.arc(cx, gy-38, 9, 0, Math.PI*2); dctx.stroke(); // head
+    // dazed eyes (x x)
+    dctx.lineWidth = 1.5;
+    dLine(cx-4, gy-40, cx-1, gy-37); dLine(cx-1, gy-40, cx-4, gy-37);
+    dLine(cx+1, gy-40, cx+4, gy-37); dLine(cx+4, gy-40, cx+1, gy-37);
+    // crushed hard hat beside them
+    dctx.save();
+    dctx.translate(cx+34, gy-4);
+    dctx.scale(1, 0.4);
+    dctx.fillStyle = '#D6482F';
+    dctx.beginPath(); dctx.arc(0,0,13,Math.PI,0); dctx.fill();
+    dctx.strokeStyle = '#8C2E1B'; dctx.lineWidth = 2; dctx.stroke();
+    dctx.restore();
+    // circling stars above the head
+    dctx.strokeStyle = '#F4D93B';
+    dctx.lineWidth = 2;
+    for(let i=0;i<3;i++){
+      const a = i*2.1;
+      const sx = cx+Math.cos(a)*22, sy = gy-62+Math.sin(a)*8;
+      dctx.beginPath();
+      dctx.moveTo(sx, sy-5); dctx.lineTo(sx+1.5, sy-1.5); dctx.lineTo(sx+5, sy);
+      dctx.lineTo(sx+1.5, sy+1.5); dctx.lineTo(sx, sy+5); dctx.lineTo(sx-1.5, sy+1.5);
+      dctx.lineTo(sx-5, sy); dctx.lineTo(sx-1.5, sy-1.5); dctx.closePath(); dctx.stroke();
+    }
+  }
+
+  // Scene 4: upside-down against a pole
+  function drawDeathScene4(){
+    dSceneBackdrop();
+    const cx = 400, gy = GROUND_Y;
+    dctx.strokeStyle = '#5B5F63';
+    dctx.lineWidth = 6;
+    dLine(cx+40, gy, cx+40, 60);
+    // figure upside down against the pole
+    dctx.strokeStyle = '#2B2B28';
+    dctx.lineWidth = 3;
+    dLine(cx+40, gy-46, cx+40, gy-16); // torso up the pole
+    dLine(cx+40, gy-16, cx+30, gy); // leg
+    dLine(cx+40, gy-16, cx+50, gy); // leg
+    dLine(cx+40, gy-40, cx+24, gy-30); // dangling arm
+    dLine(cx+40, gy-40, cx+56, gy-30); // dangling arm
+    dctx.beginPath(); dctx.arc(cx+40, gy-58, 9, 0, Math.PI*2); dctx.stroke(); // head near ground
+    // hard hat mid-air, spinning away
+    dHat(cx-30, gy-90, 1.1);
+    dctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    dctx.lineWidth = 1.5;
+    dctx.beginPath(); dctx.moveTo(cx-10, gy-70); dctx.quadraticCurveTo(cx-25, gy-84, cx-40, gy-92); dctx.stroke();
+    // impact burst at the base
+    dctx.strokeStyle = '#F4D93B';
+    dctx.lineWidth = 2;
+    for(let i=0;i<3;i++){
+      const a = i*1.1+0.3;
+      dLine(cx+40+Math.cos(a)*14, gy-58+Math.sin(a)*14, cx+40+Math.cos(a)*24, gy-58+Math.sin(a)*24);
+    }
+  }
+
+  // Scene 5: pinned under a fallen crate, legs sticking out
+  function drawDeathScene5(){
+    dSceneBackdrop();
+    const cx = 400, gy = GROUND_Y;
+    // legs and arm sticking out from under
+    dctx.strokeStyle = '#2B2B28';
+    dctx.lineWidth = 3;
+    dLine(cx-30, gy-6, cx-44, gy-24);
+    dLine(cx-30, gy-2, cx-46, gy-10);
+    dLine(cx+26, gy-10, cx+40, gy-2);
+    // the fallen crate on top
+    dctx.save();
+    dctx.translate(cx, gy-20);
+    dctx.rotate(0.05);
+    dctx.fillStyle = '#8A6A45';
+    dctx.fillRect(-40, -22, 80, 40);
+    dctx.strokeStyle = '#5B4530';
+    dctx.lineWidth = 2;
+    dctx.strokeRect(-40, -22, 80, 40);
+    dctx.beginPath(); dctx.moveTo(-40,-22); dctx.lineTo(40,18); dctx.stroke();
+    dctx.beginPath(); dctx.moveTo(40,-22); dctx.lineTo(-40,18); dctx.stroke();
+    dctx.restore();
+    // a little "SAFETY FIRST" sign propped nearby, ironically
+    dctx.save();
+    dctx.translate(cx+90, gy-40);
+    dctx.rotate(-0.08);
+    dctx.strokeStyle = '#5B5F63';
+    dctx.lineWidth = 3;
+    dLine(0, 0, 0, 40);
+    dctx.fillStyle = '#F4D93B';
+    dctx.fillRect(-24, -22, 48, 22);
+    dctx.strokeStyle = '#181816';
+    dctx.lineWidth = 1.5;
+    dctx.strokeRect(-24, -22, 48, 22);
+    dctx.fillStyle = '#181816';
+    dctx.font = 'bold 8px sans-serif';
+    dctx.textAlign = 'center';
+    dctx.fillText('SAFETY', 0, -14);
+    dctx.fillText('FIRST', 0, -5);
+    dctx.restore();
+  }
+
+  const DEATH_SCENES = [drawDeathScene1, drawDeathScene2, drawDeathScene3, drawDeathScene4, drawDeathScene5];
+  function drawRandomDeathScene(){
+    DEATH_SCENES[Math.floor(Math.random()*DEATH_SCENES.length)]();
+  }
+
   function die(){
     if(player.coffeeTimer > 0) return; // coffee buff: fully invulnerable, ignore any death trigger
     state = 'dead';
@@ -3574,6 +4060,7 @@
     stats.deaths++;
     saveStats();
     checkAchievements();
+    drawRandomDeathScene();
     deathHeadline.textContent = DEATH_HEADLINES[Math.floor(Math.random()*DEATH_HEADLINES.length)];
     const finalScore = Math.floor(distance/10);
     let isNew = false;
@@ -5842,9 +6329,9 @@
     ctx.beginPath(); ctx.moveTo(cx-ob.h*0.09-5, headY-2); ctx.lineTo(cx+ob.h*0.09+5, headY-2); ctx.stroke();
 
     if(ob.saysLine){
-      const bw = 120, bh = 42;
+      const bw = 176, bh = 62;
       const bx = cx - bw/2, by = headY - ob.h*0.09 - bh - 14;
-      const r = 8;
+      const r = 10;
       ctx.fillStyle = '#FFFFFF';
       ctx.strokeStyle = '#181816';
       ctx.lineWidth = 2;
@@ -5862,18 +6349,18 @@
       ctx.fill();
       ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(cx-7, by+bh-1);
-      ctx.lineTo(cx+3, by+bh-1);
-      ctx.lineTo(cx-3, by+bh+10);
+      ctx.moveTo(cx-9, by+bh-1);
+      ctx.lineTo(cx+5, by+bh-1);
+      ctx.lineTo(cx-4, by+bh+14);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = '#111111';
-      ctx.font = 'bold 8.5px sans-serif';
+      ctx.font = 'bold 14px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('Developers spent hours', cx, by+14);
-      ctx.fillText('making safety equipment…', cx, by+25);
-      ctx.fillText('use it', cx, by+36);
+      ctx.fillText('Developers spent hours', cx, by+21);
+      ctx.fillText('making safety equipment…', cx, by+38);
+      ctx.fillText('use it', cx, by+55);
     }
   }
 
